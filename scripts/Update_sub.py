@@ -109,7 +109,7 @@ CHECK_ROUNDS = 2
 CONFIRM_BEST = True
 CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
 
-GEO_DELAY = 1.4            # ip-api.com бесплатно: ~45 запросов в минуту
+GEO_DELAY = 0.3            # пауза только для запасного гео по IP сервера
 PROGRESS_EVERY = 50        # как часто писать прогресс xray-проверки (раз в N конфигов)
 BASE_LOCAL_PORT = 21000
 
@@ -703,33 +703,112 @@ async def xray_real_check(line):
 
 
 # ============================================================
-# GEO СЕРВЕРА
+# GEO: цепочка провайдеров (Sypex Geo — российский, первый)
+# ip="" -> определяет IP того, кто делает запрос
+# (через прокси это реальный выходной IP конфига)
 # ============================================================
 
-async def get_server_geo(session, ip):
-    """Возвращает (country_code, geo_name) или (None, None)."""
+GEO_PROVIDERS = [
+    ("sypex", "https://api.sypexgeo.net/json/{ip}"),
+    ("ipwho", "https://ipwho.is/{ip}"),
+    ("ipapi", "http://ip-api.com/json/{ip}?fields=status,countryCode,city"),
+]
+
+
+def parse_geo(kind, data):
     try:
-        if not ip:
+        if kind == "sypex":
+            cc = (data.get("country") or {}).get("iso")
+            c = data.get("city") or {}
+            city = c.get("name_ru") or c.get("name_en")
+        elif kind == "ipwho":
+            if not data.get("success"):
+                return None, None
+            cc, city = data.get("country_code"), data.get("city")
+        else:
+            if data.get("status") != "success":
+                return None, None
+            cc, city = data.get("countryCode"), data.get("city")
+        if cc and len(cc) == 2 and cc.isalpha():
+            return cc.upper(), city
+    except Exception:
+        pass
+    return None, None
+
+
+async def geo_lookup(session, ip=""):
+    """Возвращает (country_code, geo_name) или (None, None)."""
+    timeout = aiohttp.ClientTimeout(total=8.0)
+    for kind, tpl in GEO_PROVIDERS:
+        try:
+            async with session.get(tpl.format(ip=ip), timeout=timeout) as resp:
+                if resp.status != 200:
+                    continue
+                data = await resp.json(content_type=None)
+            code, city = parse_geo(kind, data)
+            if code:
+                return code, make_geo_name(code, city)
+        except Exception:
+            continue
+    return None, None
+
+
+async def get_server_geo(session, ip):
+    """Запасной вариант: гео по IP сервера (напрямую, без прокси)."""
+    if not ip:
+        return None, None
+    return await geo_lookup(session, ip)
+
+
+async def xray_exit_geo(line):
+    """Страна по РЕАЛЬНОМУ выходному IP: поднимаем xray и спрашиваем гео через прокси."""
+    outbound = build_outbound(line)
+    if not outbound:
+        return None, None
+
+    port = await _port_pool.get()
+    proc = None
+    tmp_path = None
+    try:
+        cfg = {
+            "log": {"loglevel": "none"},
+            "inbounds": [{"listen": "127.0.0.1", "port": port,
+                          "protocol": "socks", "settings": {"udp": False}}],
+            "outbounds": [outbound],
+        }
+        fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="xg_")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(cfg, f)
+
+        proc = await asyncio.create_subprocess_exec(
+            XRAY_BINARY, "run", "-c", tmp_path,
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+        if not await wait_local_port(proc, port, XRAY_STARTUP_TIMEOUT):
             return None, None
 
-        url = f"http://ip-api.com/json/{ip}?fields=status,countryCode,city"
-        timeout = aiohttp.ClientTimeout(total=8.0)
-
-        for attempt in range(2):
-            async with session.get(url, timeout=timeout) as response:
-                if response.status == 429:  # лимит — ждём и пробуем ещё раз
-                    await asyncio.sleep(5)
-                    continue
-                if response.status != 200:
-                    return None, None
-                data = await response.json(content_type=None)
-                if data.get("status") != "success":
-                    return None, None
-                country_code = data.get("countryCode")
-                return country_code, make_geo_name(country_code, data.get("city"))
-        return None, None
+        connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+        async with aiohttp.ClientSession(connector=connector) as s:
+            return await geo_lookup(s)
     except Exception:
         return None, None
+    finally:
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.terminate()
+                await asyncio.wait_for(proc.wait(), timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                    await proc.wait()
+                except Exception:
+                    pass
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        await _port_pool.put(port)
 
 
 # ============================================================
@@ -981,25 +1060,33 @@ async def main():
             print("[x] После повторной проверки рабочих не осталось.")
             return
 
-        # ---------- 5. страна/город + переименование (только для выбранных) ----------
-        print("\n[i] Определяю страны...")
-        geo_cache = {}
+        # ---------- 5. страна/город по реальному выходному IP + переименование ----------
+        print("\n[i] Определяю страны (по выходному IP)...")
+        geo_sem = asyncio.Semaphore(CONCURRENCY)
+        geo_done = 0
+
+        async def geo_one(config):
+            nonlocal geo_done
+            async with geo_sem:
+                code, name = await xray_exit_geo(config)
+                if not code:  # запасной путь: гео по IP сервера
+                    hp = get_host_port(config)
+                    if hp:
+                        ip = await resolve_ip(hp[0])
+                        code, name = await get_server_geo(session, ip)
+                        await asyncio.sleep(GEO_DELAY)
+                geo_done += 1
+                if geo_done % 10 == 0 or geo_done == len(best):
+                    print(f"    гео {geo_done}/{len(best)}")
+                return code, name
+
+        geos = await asyncio.gather(*(geo_one(c) for c, _ in best))
+
         items = []  # (country_name, latency, renamed_line)
-        for i, (config, latency) in enumerate(best, 1):
-            hp = get_host_port(config)
-            code, name = None, None
-            if hp:
-                host = hp[0]
-                if host not in geo_cache:
-                    ip = await resolve_ip(host)
-                    geo_cache[host] = await get_server_geo(session, ip)
-                    await asyncio.sleep(GEO_DELAY)
-                code, name = geo_cache[host]
+        for (config, latency), (code, name) in zip(best, geos):
             final_name = name or "🌐 Неизвестно"
             country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
             items.append((country_key, latency, rename_config(config, final_name)))
-            if i % 10 == 0 or i == len(best):
-                print(f"    гео {i}/{len(best)}")
 
         # группируем по стране, внутри страны — по пингу
         items.sort(key=lambda x: (x[0], x[1]))

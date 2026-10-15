@@ -1,4 +1,4 @@
-name: Update VPN config
+name: Update Auto config
 
 on:
   workflow_dispatch: {}      # + можно запустить руками

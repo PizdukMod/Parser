@@ -19,4 +19,4 @@ jobs:
       - name: Build & push config
         env:
           GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
-        run: python scripts/build_config.py
+        run: python scripts/auto/build_config.py

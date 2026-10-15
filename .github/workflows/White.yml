@@ -61,8 +61,8 @@ jobs:
 
       - name: Push result to GitVerse
         env:
-          GITVERSE_TOKEN: ${{ secrets.GITVERSE_TOKEN }}
-          GITVERSE_REPO: ${{ secrets.GITVERSE_REPO }}
+          GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
+          GITVERSE_REPO: ${{ secrets.PIZDUK_REPO }}
         run: |
           set -e
 

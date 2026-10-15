@@ -1,0 +1,1034 @@
+#!/usr/bin/env python3
+
+import asyncio
+import aiohttp
+import aiohttp_socks
+import base64
+import ipaddress
+import json
+import re
+import socket
+import tempfile
+import os
+import itertools
+import time
+
+from pathlib import Path
+from urllib.parse import urlparse, parse_qs, unquote, quote
+
+
+# ============================================================
+# ИСТОЧНИКИ — НЕ МЕНЯТЬ
+# ============================================================
+
+SOURCES = [
+    "https://freevpnhappcluchi.duckdns.org/sub/3qjxa0px9dqfd01q",
+    "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
+    "https://gidroksi.fun/black-list",
+    "https://sub.clearq.workers.dev/sub/clearqsite?id=Colab_VPN",
+    "https://raw.githubusercontent.com/MK-l4/EliteQ/main/EliteQ",
+    "https://raw.githubusercontent.com/gooseteam-hackers/freevpn-cracks/refs/heads/main/subscription_auto.txt",
+    "https://gist.githubusercontent.com/flexter151-rgb/de6108267d7a17ce217961b2b2e3accc/raw/b677202742aab271b311af8b808f6860dfc8fe99/gistfile1.txt",
+    "https://github.com/Remiuc0ff/ya-nikogo-ne-ubival/raw/refs/heads/Remiuc0ff-patch-1/okak",
+]
+
+
+# ============================================================
+# ЗАКРЕПЛЁННЫЕ КОНФИГИ — добавляются в начало БЕЗ проверки
+# ============================================================
+
+PINNED_CONFIGS = [
+    "#profile-title: PizDukVPN ЧС🏴",
+    "#announce: base64: 8J+UpdCi0LXQu9C10LPRgNCw0Lwg0LrQsNC90LDQuzogQFBpem1vZPCfpboK8J+lsNCQ0LLRgtC+0L7QsdC90L7QstC70LXQvdC40LUg0YDQsNC3INCyIDYg0YfQsNGB0L7QsvCfmLE=",
+    "#profile-web-page-url: https://t.me/PizMod",
+    "#support-url: https://t.me/Harachok",
+    "#profile-update-interval: 6",
+    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443?security=reality&encryption=none&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&headerType=none&fp=qq&type=tcp&flow=xtls-rprx-vision&sni=qq.utiltools.site#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%28telegram-only%29",
+    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443?security=reality&encryption=none&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&headerType=none&fp=qq&type=tcp&flow=xtls-rprx-vision&sni=qq.utiltools.site#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%D1%8D%D1%82%D0%BE%202%20%28telegram-only%29",
+    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@78.159.250.214:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=chrome&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=00000000#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BA%D0%B0%D1%80%D1%82%D0%BE%D1%88%D0%BA%D0%B0%20%F0%9F%A5%94",
+    "vless://95a608b6-bff1-4e10-bb61-0a39f221bb7d@fitindoor.net:2053/?type=xhttp&encryption=none&flow=&host=fitindoor.net&path=%2Fapi%2Fv1%2Fupload&mode=auto&security=tls&sni=fitindoor.net&alpn=h2%2Chttp%2F1.1&fp=firefox#%F0%9F%87%B7%F0%9F%87%BA%20%E0%BC%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%20%E0%BC%BB%20%F0%9F%93%B6",
+    "vless://95a608b6-bff1-4e10-bb61-0a39f221bb7d@randomquaint.net:2053/?type=xhttp&encryption=none&flow=&host=randomquaint.net&path=%2Fapi%2Fv1%2Fupload&mode=auto&security=tls&sni=randomquaint.net&alpn=h2%2Chttp%2F1.1&fp=firefox#%F0%9F%87%B7%F0%9F%87%BA%20%E0%BC%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%20%E0%BC%BB%20%F0%9F%9B%B0",
+    "hy2://7ab3c77e-8fcc-4848-918f-cae3d4eac794@194.87.118.184:2053/?hop_interval=10&sni=match-stream.lovkisport.blog#🇷🇺 Россия",
+    "vless://068c73f5-c2fc-4579-96be-6e37cfcf58ed@193.233.220.203:8443/?type=xhttp&encryption=none&flow=&path=%2Fxhttp&mode=auto&sni=cdn-us.cahmes.space&fp=firefox&security=reality&pbk=KZejN2d1cwCrITHNxFYQVZ4rpMTZzHgJd9p30MZm_3k&sid=6bd33a75ebc0f26e#%F0%9F%87%BA%F0%9F%87%B8%20%D0%A1%D0%A8%D0%90%20%F0%9F%9F%A2Steam",
+    "vless://068c73f5-c2fc-4579-96be-6e37cfcf58ed@us-05.avroraservice.online:8443/?type=xhttp&encryption=none&flow=&path=%2Fxhttp&mode=stream-one&sni=cdn-us.cahmes.space&fp=chrome&security=reality&pbk=KZejN2d1cwCrITHNxFYQVZ4rpMTZzHgJd9p30MZm_3k&sid=6bd33a75ebc0f26e#%F0%9F%87%BA%F0%9F%87%B8%20%E0%BC%BA%20%D0%A1%D0%A8%D0%90%20%E0%BC%BB%20%F0%9F%97%BD",
+    "vmess://eyJhZGQiOiJjZi4wc20uY29tIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3M/ZWRcdTAwM2QyMDQ4IiwicG9ydCI6IjgwIiwicHMiOiLwn4e68J+HuCDinKYg0KHQqNCQIOKcpiDwn4yAIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
+    "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.204:8080#%E2%9C%A6%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9C%A7%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9C%A7%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9C%A6",
+    "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.195:8080#%E2%9F%A1%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9C%A6%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9C%A6%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9F%A1",
+    "vless://6b134aff-450b-4a5f-8d1b-dac67ceb11d0@151.241.166.137.sslip.io:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=151.241.166.137.sslip.io&fp=firefox&security=reality&pbk=HhY8AOOPbY7Aah3XHlAUYYbXR8kSncqslAvY8iUbnUc&sid=90265b4bea0f563a#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0",
+    "hy2://mkL3AfdSZIpTWRB9TcWPn9vywPGN89MRHg3ToRDj@91.196.32.163:443/?insecure=1&hop_interval=10&sni=germany3.h2corp.local#❃ 🇩🇪 ✾ Германия ✾ 🇩🇪 ❃",
+    "vless://03ca8c3f-e777-45b5-a1b1-592094ca99ee@79.174.92.222:443/?type=grpc&encryption=none&flow=&sni=m.vk.com&fp=chrome&security=reality&pbk=_PYBo3dyZRpGC44vADqcmlBCSeAVh1X8l3mulghVsTI&sid=a1b2c3d4#%F0%9F%87%A9%F0%9F%87%AA%20%E2%AA%A2%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%AA%A1%20%F0%9F%8D%BA",
+    "vless://6b134aff-450b-4a5f-8d1b-dac67ceb11d0@germ2.serverslocal.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=germ2.serverslocal.ru&fp=firefox&security=reality&pbk=uLuPk7Ee7W9BcvjgM2FJHYG2NJxEeEkP7QVL8jYudhI&sid=aa9bfaebd76d8b95#%F0%9F%87%A9%F0%9F%87%AA%20%E2%8A%B9%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%8A%B9%20%E2%9A%99%EF%B8%8F",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.18:443/?type=grpc&encryption=none&flow=&serviceName=node.v2.ObjectService&sni=rs1.univesalsrv.com&fp=chrome&security=reality&pbk=upIzyaSbVz2ZK6KfGtXmPl_-sCwn8XLDyFDH5CsL9iY&sid=ed0cd5cc2e26e6e7#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%E2%9A%A1",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.19:443/?type=grpc&encryption=none&flow=&serviceName=media.v1.ObjectService&sni=rs2.univesalsrv.com&fp=firefox&security=reality&pbk=tL16MVY08r-7YDXb1_gxuBBWInpSFp97ZLJ_ax3R2iE&sid=1469af2040b7c323#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%8C%BF",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.22:443/?type=grpc&encryption=none&flow=&serviceName=media.v1.StreamService&sni=rs4.univesalsrv.com&fp=firefox&security=reality&pbk=sXsJ4ET-50TYqlhKZf03nPQr2JIy1F0D4m6lOsI0cAs&sid=861ac7d66953e55f#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%94%A5",
+    "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.178:8080#%F0%9F%87%AC%F0%9F%87%A7%20%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%BE%D0%B1%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20ss",
+    "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpvWklvQTY5UTh5aGNRVjhrYTNQYTNB@82.38.31.54:8080#%F0%9F%87%AC%F0%9F%87%A7%20%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%BE%D0%B1%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20ss2",
+    "vless://9ef61079-6f7d-4911-9608-943da85d8e6f@test.keoplentuio.xyz:2053/?type=tcp&encryption=none&flow=#%F0%9F%87%B9%F0%9F%87%B7%20%EA%A7%81%20%D0%A2%D1%83%D1%80%D1%86%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%8C%99",
+    "vless://6bceb548-d9b6-461f-8e37-a5a7fbcdc2c8@milo.rubinaz.xyz:8080/?type=tcp&encryption=none&flow=#%F0%9F%87%A8%F0%9F%87%A6%20%EA%A7%81%20%D0%9A%D0%B0%D0%BD%D0%B0%D0%B4%D0%B0%20%EA%A7%82%20%F0%9F%8D%81",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@bg2.univesalsrv.com:443/?type=grpc&encryption=none&flow=&serviceName=api.v2.PushService&fp=chrome&security=reality&pbk=0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4&sid=501ab3325b77e1ca#%F0%9F%87%A7%F0%9F%87%AC%20%EA%A7%81%20%D0%91%D0%BE%D0%BB%D0%B3%D0%B0%D1%80%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%8C%B9",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@89.35.14.32:443/?type=grpc&encryption=none&flow=&serviceName=stats.v2.PushService&sni=md3.univesalsrv.com&fp=firefox&security=reality&pbk=q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ&sid=9a72d40f1ff882b3#%F0%9F%87%B2%F0%9F%87%A9%20%EA%A7%81%20%D0%9C%D0%BE%D0%BB%D0%B4%D0%BE%D0%B2%D0%B0%20%EA%A7%82%20%F0%9F%8D%87",
+    "vmess://eyJhZGQiOiJldTMuOTk4OTk4LmJlc3QiLCJhaWQiOiIwIiwiYWxwbiI6IiIsImZwIjoiIiwiaG9zdCI6InNlcnZlcjQwLjk5NjYzMzgueHl6IiwiaWQiOiI1NTA0ZWFhOC0xMzk1LTQwMmYtOGUwZS03NWVjZDc2MmU2MjciLCJuZXQiOiJ3cyIsInBhdGgiOiIvYWlhaWFpIiwicG9ydCI6IjQ0MyIsInBzIjoi8J+HqvCfh6og6qeBINCt0YHRgtC+0L3QuNGPIOqngiDwn4y/Iiwic2N5IjoiYXV0byIsInNuaSI6InNlcnZlcjQwLjk5NjYzMzgueHl6IiwidGxzIjoidGxzIiwidHlwZSI6IiIsInYiOiIyIn0=",
+    "vless://019fbe0f-2d9f-4b89-9f81-e1e36129892a@77.110.105.122:443/?type=raw&encryption=none&flow=xtls-rprx-vision&sni=co-es.speedtec.ru&fp=random&security=reality&pbk=EBISh6QAVskJ_nvet-Qio9jS2yqxe9de6GMScYlbjhI&sid=226509f017e4c36d#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F",
+    "vless://c6cfcc53-9271-4ef7-88c5-5141621c8db1@31.59.216.141:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=193.23.216.239.cdn-one.org&fp=firefox&security=reality&pbk=7zsU1U-30jh-qqfmqZukMfoqHB75ksKFA5aQFi8LGW4&sid=70b4ca#%F0%9F%87%AB%F0%9F%87%B7%20%D0%A2%D0%BE%D1%80%D1%82%D0%B8%D0%BA%20FR",
+    "vmess://eyJhZGQiOiIxNjUuMTU0LjE5NS4zOCIsImFpZCI6IjAiLCJhbHBuIjoiIiwiZnAiOiIiLCJob3N0IjoiIiwiaWQiOiI5NTlhOGNhZi00Y2VhLTQzZDAtYTU0OC0zNjI4ZTdkZGZhZmMiLCJuZXQiOiJ0Y3AiLCJwYXRoIjoiIiwicG9ydCI6IjM1MDM0IiwicHMiOiLwn4e58J+vless+0LUg0LPQvtGB0YPQtNCw0YDRgdGC0LLQviIsInNjeSI6ImF1dG8iLCJzbmkiOiIiLCJ0bHMiOiIiLCJ0eXBlIjoiIiwidiI6IjIifQ==",
+    #пропуск (не удалять!) . - , получается хуйня такая
+]
+
+
+# ============================================================
+# НАСТРОЙКИ
+# ============================================================
+
+TARGET_COUNT = 60          # сколько конфигов взять в итоге (не считая закреплённых)
+EARLY_STOP_MULT = 3        # остановить проверку, когда найдено TARGET_COUNT * N рабочих
+                           # (из них берутся лучшие по пингу). 0 = проверять все
+
+MAX_PING_MS = 3000         # отсечка совсем медленных (пинг через прокси)
+GOOD_PING_MS = 300         # только для значков в логе
+
+MAX_TCP_PING_MS = 1700     # TCP-пинг выше этого (или нет ответа) — в xray не идёт
+TCP_CONCURRENCY = 200      # одновременных TCP-проверок
+
+FETCH_TIMEOUT = 20.0
+
+CONCURRENCY = 15           # одновременных xray-процессов
+XRAY_STARTUP_TIMEOUT = 6.0 # сек: максимум ждём, пока xray откроет локальный порт
+XRAY_TEST_TIMEOUT = 8.0    # сек на ОДИН тестовый запрос через прокси
+XRAY_BINARY = "xray"       # должен быть в PATH
+TEST_URLS = [
+    "https://cp.cloudflare.com/generate_204",
+    "https://www.gstatic.com/generate_204",
+]
+
+# Строгая проверка: КАЖДЫЙ тестовый URL должен ответить в КАЖДОМ раунде.
+# Первый раунд — «холодный» (рукопожатие), последний — «тёплый», по нему считается пинг.
+CHECK_ROUNDS = 2
+
+# Повторная проверка лучших кандидатов отдельным запуском xray:
+# отсекает «мигающие» серверы, которые прошли проверку случайно.
+CONFIRM_BEST = True
+CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
+
+GEO_DELAY = 1.4            # ip-api.com бесплатно: ~45 запросов в минуту
+PROGRESS_EVERY = 50        # как часто писать прогресс xray-проверки (раз в N конфигов)
+BASE_LOCAL_PORT = 21000
+
+OUTPUT_FILE = Path("output/sub.txt")
+
+PROTOCOLS = (
+    "vless://", "vmess://", "trojan://", "ss://",
+    "ssr://", "hysteria2://", "hy2://", "tuic://",
+)
+
+# Только эти протоколы можно реально проверить через xray.
+# hy2/tuic/ssr по одному TCP-коннекту проверить нельзя (они на UDP),
+# поэтому в «рабочие» они не попадают.
+XRAY_SUPPORTED = ("vless://", "vmess://", "trojan://", "ss://")
+
+
+# ============================================================
+# НАЗВАНИЯ СТРАН
+# ============================================================
+
+COUNTRY_NAMES = {
+    "RU": "Россия", "DE": "Германия", "NL": "Нидерланды", "FI": "Финляндия",
+    "SE": "Швеция", "NO": "Норвегия", "DK": "Дания", "FR": "Франция",
+    "GB": "Великобритания", "UK": "Великобритания", "US": "США", "CA": "Канада",
+    "PL": "Польша", "CZ": "Чехия", "CH": "Швейцария", "AT": "Австрия",
+    "BE": "Бельгия", "IT": "Италия", "ES": "Испания", "PT": "Португалия",
+    "IE": "Ирландия", "IS": "Исландия", "EE": "Эстония", "LV": "Латвия",
+    "LT": "Литва", "UA": "Украина", "BY": "Беларусь", "KZ": "Казахстан",
+    "UZ": "Узбекистан", "GE": "Грузия", "AM": "Армения", "AZ": "Азербайджан",
+    "TR": "Турция", "IL": "Израиль", "AE": "ОАЭ", "JP": "Япония",
+    "KR": "Южная Корея", "CN": "Китай", "HK": "Гонконг", "SG": "Сингапур",
+    "IN": "Индия", "AU": "Австралия", "BR": "Бразилия", "MX": "Мексика",
+    "AR": "Аргентина", "CL": "Чили", "ZA": "ЮАР", "RO": "Румыния",
+    "BG": "Болгария", "GR": "Греция", "HU": "Венгрия", "SK": "Словакия",
+    "SI": "Словения", "HR": "Хорватия", "RS": "Сербия", "LU": "Люксембург",
+    "LI": "Лихтенштейн", "MT": "Мальта", "CY": "Кипр", "TH": "Таиланд",
+    "VN": "Вьетнам", "ID": "Индонезия", "MY": "Малайзия", "PH": "Филиппины",
+    "NZ": "Новая Зеландия",
+}
+
+
+# ============================================================
+# BASE64
+# ============================================================
+
+def b64decode_safe(value):
+    if not value:
+        return None
+    value = value.strip()
+    value = value.replace("-", "+").replace("_", "/")
+    value += "=" * (-len(value) % 4)
+    try:
+        return base64.b64decode(value, validate=False).decode("utf-8", errors="ignore")
+    except Exception:
+        return None
+
+
+# ============================================================
+# ФЛАГ / НАЗВАНИЕ СТРАНЫ
+# ============================================================
+
+def get_country_flag(country_code):
+    if not country_code or len(country_code) != 2 or not country_code.isalpha():
+        return "🌐"
+    country_code = country_code.upper()
+    return chr(ord(country_code[0]) + 127397) + chr(ord(country_code[1]) + 127397)
+
+
+def get_country_name(country_code):
+    if not country_code:
+        return "Неизвестная страна"
+    return COUNTRY_NAMES.get(country_code.upper(), country_code.upper())
+
+
+def make_geo_name(country_code, city):
+    flag = get_country_flag(country_code)
+    country = get_country_name(country_code)
+    if city:
+        city = str(city).strip()
+        if city:
+            return f"{flag} {country} — {city}"
+    return f"{flag} {country}"
+
+
+# ============================================================
+# ПЕРЕИМЕНОВАНИЕ
+# ============================================================
+
+def rename_config(line, new_name):
+    if line.startswith("vmess://"):
+        decoded = b64decode_safe(line[len("vmess://"):])
+        if decoded:
+            try:
+                obj = json.loads(decoded)
+                obj["ps"] = new_name
+                encoded = base64.b64encode(
+                    json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+                ).decode("utf-8")
+                return "vmess://" + encoded
+            except Exception:
+                pass
+        return line
+
+    base_line = line.split("#", 1)[0]
+    return f"{base_line}#{quote(new_name)}"
+
+
+# ============================================================
+# ИЗВЛЕЧЕНИЕ КОНФИГОВ
+# ============================================================
+
+def extract_lines(raw):
+    if not raw:
+        return []
+    candidates = [raw]
+    decoded = b64decode_safe(raw)
+    if decoded and "://" in decoded:
+        candidates.append(decoded)
+
+    result = []
+    for text in candidates:
+        for line in text.splitlines():
+            line = line.strip()
+            if line.startswith(PROTOCOLS):
+                result.append(line)
+    return list(dict.fromkeys(result))
+
+
+# ============================================================
+# КЛЮЧ ДЛЯ УДАЛЕНИЯ ДУБЛИКАТОВ
+# Дубль = один и тот же сервер (протокол + хост + порт + uuid/пароль).
+# Название (#...) и мелкие параметры (fp, sni, sid, flow...) на ключ не влияют:
+# на одном порту всё равно работает один конфиг.
+# ============================================================
+
+def dedupe_key(line):
+    if line.startswith("vmess://"):
+        data = b64decode_safe(line[len("vmess://"):])
+        if data:
+            try:
+                o = json.loads(data)
+                return ("vmess", str(o.get("add")).strip().lower(), str(o.get("port")), str(o.get("id")))
+            except Exception:
+                pass
+        return (line,)
+
+    scheme, _, rest = line.partition("://")
+    netloc = re.split(r"[/?#]", rest, maxsplit=1)[0]
+    userinfo, _, hostport = netloc.rpartition("@")
+    return (scheme.lower(), userinfo, hostport.lower())
+
+
+# ============================================================
+# HOST / PORT
+# ============================================================
+
+def get_host_port(line):
+    if line.startswith("vmess://"):
+        data = b64decode_safe(line[len("vmess://"):])
+        if not data:
+            return None
+        try:
+            obj = json.loads(data)
+            host = obj.get("add")
+            port = int(obj.get("port"))
+            if host and port:
+                return host, port
+        except Exception:
+            return None
+        return None
+
+    try:
+        parsed = urlparse(line)
+        if parsed.hostname and parsed.port:
+            return parsed.hostname, parsed.port
+    except Exception:
+        pass
+    return None
+
+
+def query_params(parsed):
+    result = {}
+    for key, values in parse_qs(parsed.query, keep_blank_values=True).items():
+        if values:
+            result[key.lower()] = values[0]
+    return result
+
+
+def first(params, *names):
+    for name in names:
+        value = params.get(name.lower())
+        if value is not None:
+            return value
+    return None
+
+
+# ============================================================
+# DNS (асинхронно, с кэшем) — нужен для удаления дублей по IP и для гео
+# ============================================================
+
+_dns_cache = {}
+
+
+async def resolve_ip(host):
+    if host in _dns_cache:
+        return _dns_cache[host]
+    ip = None
+    try:
+        ipaddress.ip_address(host)
+        ip = host
+    except ValueError:
+        try:
+            loop = asyncio.get_running_loop()
+            infos = await asyncio.wait_for(
+                loop.getaddrinfo(host, None, family=socket.AF_INET, type=socket.SOCK_STREAM),
+                timeout=5.0,
+            )
+            if infos:
+                ip = infos[0][4][0]
+        except Exception:
+            ip = None
+    _dns_cache[host] = ip
+    return ip
+
+
+# ============================================================
+# ПОСТРОЕНИЕ XRAY-КОНФИГА ИЗ URI
+# ============================================================
+
+def build_stream_settings(params, default_host, default_security="none"):
+    network = (first(params, "type", "network", "net") or "tcp").lower()
+    # "raw" (так называет клиент) = обычный tcp; "splithttp" = старое имя xhttp
+    if network in ("raw", ""):
+        network = "tcp"
+    if network == "splithttp":
+        network = "xhttp"
+    security = (first(params, "security") or default_security).lower()
+    stream = {"network": network}
+
+    if network == "ws":
+        stream["wsSettings"] = {
+            "path": unquote(first(params, "path") or "/"),
+            "headers": {"Host": first(params, "host") or default_host},
+        }
+    elif network == "grpc":
+        stream["grpcSettings"] = {
+            "serviceName": unquote(first(params, "servicename") or ""),
+        }
+    elif network in ("xhttp", "http", "h2"):
+        stream["network"] = "xhttp" if network == "xhttp" else "h2"
+        path = unquote(first(params, "path") or "/")
+        host = first(params, "host") or default_host
+        if stream["network"] == "xhttp":
+            stream["xhttpSettings"] = {"path": path, "host": host, "mode": first(params, "mode") or "auto"}
+        else:
+            stream["httpSettings"] = {"path": path, "host": [host]}
+
+    if security == "reality":
+        pbk = first(params, "pbk", "publickey")
+        if not pbk:
+            return None  # reality без публичного ключа работать не может
+        stream["security"] = "reality"
+        stream["realitySettings"] = {
+            "serverName": first(params, "sni", "servername") or default_host,
+            "fingerprint": first(params, "fp", "fingerprint") or "chrome",
+            "publicKey": pbk,
+            "shortId": first(params, "sid", "shortid") or "",
+            "spiderX": first(params, "spx") or "",
+        }
+    elif security == "tls":
+        tls = {
+            "serverName": first(params, "sni", "servername") or default_host,
+            "allowInsecure": True,
+            "fingerprint": first(params, "fp", "fingerprint") or "chrome",
+        }
+        alpn = first(params, "alpn")
+        if alpn:
+            tls["alpn"] = [a for a in unquote(alpn).split(",") if a]
+        stream["security"] = "tls"
+        stream["tlsSettings"] = tls
+    else:
+        stream["security"] = "none"
+
+    return stream
+
+
+def parse_vless(line):
+    try:
+        parsed = urlparse(line)
+        uuid, host, port = parsed.username, parsed.hostname, parsed.port
+        if not (uuid and host and port):
+            return None
+        params = query_params(parsed)
+        stream = build_stream_settings(params, host)
+        if stream is None:
+            return None
+        return {
+            "protocol": "vless",
+            "settings": {
+                "vnext": [{
+                    "address": host,
+                    "port": port,
+                    "users": [{
+                        "id": uuid,
+                        "encryption": first(params, "encryption") or "none",
+                        "flow": first(params, "flow") or "",
+                    }],
+                }]
+            },
+            "streamSettings": stream,
+        }
+    except Exception:
+        return None
+
+
+def parse_trojan(line):
+    try:
+        parsed = urlparse(line)
+        password, host, port = parsed.username, parsed.hostname, parsed.port
+        if not (password and host and port):
+            return None
+        params = query_params(parsed)
+        # у trojan по умолчанию TLS
+        stream = build_stream_settings(params, host, default_security="tls")
+        if stream is None:
+            return None
+        return {
+            "protocol": "trojan",
+            "settings": {"servers": [{"address": host, "port": port, "password": unquote(password)}]},
+            "streamSettings": stream,
+        }
+    except Exception:
+        return None
+
+
+def parse_ss(line):
+    try:
+        body = line[len("ss://"):]
+        userinfo_part, _, rest = body.partition("@")
+        if not rest:
+            return None
+        # ss с плагином (obfs и т.п.) xray не умеет — такие не проверяем
+        if "plugin=" in rest.lower():
+            return None
+        hostport_part = rest.split("#", 1)[0].split("?", 1)[0].rstrip("/")
+        host, _, port_s = hostport_part.rpartition(":")
+        port = int(port_s) if port_s.isdigit() else None
+        if not (host and port):
+            return None
+
+        decoded = b64decode_safe(unquote(userinfo_part))
+        creds = decoded if (decoded and ":" in decoded) else unquote(userinfo_part)
+        if ":" not in creds:
+            return None
+        method, password = creds.split(":", 1)
+
+        return {
+            "protocol": "shadowsocks",
+            "settings": {"servers": [{"address": host, "port": port, "method": method, "password": password}]},
+        }
+    except Exception:
+        return None
+
+
+def parse_vmess(line):
+    try:
+        data = b64decode_safe(line[len("vmess://"):])
+        if not data:
+            return None
+        obj = json.loads(data)
+        host, port, uuid = obj.get("add"), int(obj.get("port")), obj.get("id")
+        if not (host and port and uuid):
+            return None
+
+        network = str(obj.get("net", "tcp")).lower()
+        if network in ("raw", ""):
+            network = "tcp"
+        stream = {"network": network}
+
+        if network == "ws":
+            stream["wsSettings"] = {"path": obj.get("path", "/"), "headers": {"Host": obj.get("host", "") or host}}
+        elif network == "grpc":
+            stream["grpcSettings"] = {"serviceName": obj.get("path", "")}
+
+        if str(obj.get("tls", "")).lower() == "tls":
+            tls = {
+                "serverName": obj.get("sni") or obj.get("host") or host,
+                "allowInsecure": True,
+            }
+            alpn = obj.get("alpn")
+            if alpn:
+                tls["alpn"] = [a for a in str(alpn).split(",") if a]
+            stream["security"] = "tls"
+            stream["tlsSettings"] = tls
+        else:
+            stream["security"] = "none"
+
+        return {
+            "protocol": "vmess",
+            "settings": {
+                "vnext": [{
+                    "address": host,
+                    "port": port,
+                    "users": [{
+                        "id": uuid,
+                        "alterId": int(obj.get("aid", 0) or 0),
+                        "security": obj.get("scy", "auto"),
+                    }],
+                }]
+            },
+            "streamSettings": stream,
+        }
+    except Exception:
+        return None
+
+
+def build_outbound(line):
+    if line.startswith("vless://"):
+        return parse_vless(line)
+    if line.startswith("vmess://"):
+        return parse_vmess(line)
+    if line.startswith("trojan://"):
+        return parse_trojan(line)
+    if line.startswith("ss://"):
+        return parse_ss(line)
+    return None
+
+
+# ============================================================
+# ПУЛ ЛОКАЛЬНЫХ ПОРТОВ
+# ============================================================
+
+_port_counter = itertools.count(BASE_LOCAL_PORT)
+_port_pool = asyncio.Queue()
+
+
+def init_port_pool(n):
+    for _ in range(n):
+        _port_pool.put_nowait(next(_port_counter))
+
+
+# ============================================================
+# БЫСТРАЯ TCP-ПРОВЕРКА (до xray)
+# ============================================================
+
+async def tcp_ping(line):
+    """Возвращает время TCP-подключения в мс или None."""
+    hp = get_host_port(line)
+    if not hp:
+        return None
+    host, port = hp
+    start = time.monotonic()
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=MAX_TCP_PING_MS / 1000,
+        )
+    except Exception:
+        return None
+    ms = (time.monotonic() - start) * 1000
+    try:
+        writer.close()
+        await writer.wait_closed()
+    except Exception:
+        pass
+    return ms
+
+
+async def tcp_filter(candidates):
+    """Оставляет только отвечающие по TCP. Возвращает список (config, tcp_ms)."""
+    semaphore = asyncio.Semaphore(TCP_CONCURRENCY)
+    alive = []
+
+    async def worker(config):
+        async with semaphore:
+            ms = await tcp_ping(config)
+            if ms is not None and ms <= MAX_TCP_PING_MS:
+                alive.append((config, ms))
+
+    await asyncio.gather(*(worker(c) for c in candidates))
+    return alive
+
+
+# ============================================================
+# ОЖИДАНИЕ ЛОКАЛЬНОГО ПОРТА XRAY
+# (вместо слепого sleep: не даём ложных «не работает» при нагрузке
+#  и точно знаем, что запрос идёт именно в наш xray)
+# ============================================================
+
+async def wait_local_port(proc, port, timeout):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if proc.returncode is not None:
+            return False  # xray упал — конфиг битый
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection("127.0.0.1", port), timeout=0.5
+            )
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+            return True
+        except Exception:
+            await asyncio.sleep(0.1)
+    return False
+
+
+# ============================================================
+# РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY — возвращает пинг (мс) или None
+# Строго: все тестовые URL должны ответить во всех раундах,
+# HTTPS-сертификаты проверяются (подменённый/«дырявый» прокси не проходит).
+# ============================================================
+
+async def xray_real_check(line):
+    outbound = build_outbound(line)
+    if not outbound:
+        return None
+
+    port = await _port_pool.get()
+    proc = None
+    tmp_path = None
+
+    try:
+        xray_config = {
+            "log": {"loglevel": "none"},
+            "inbounds": [{
+                "listen": "127.0.0.1",
+                "port": port,
+                "protocol": "socks",
+                "settings": {"udp": False},
+            }],
+            "outbounds": [outbound],
+        }
+
+        fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="xr_")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(xray_config, f)
+
+        proc = await asyncio.create_subprocess_exec(
+            XRAY_BINARY, "run", "-c", tmp_path,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+
+        if not await wait_local_port(proc, port, XRAY_STARTUP_TIMEOUT):
+            return None
+
+        connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+        timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
+
+        latencies = []
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            for rnd in range(CHECK_ROUNDS):
+                last_round = rnd == CHECK_ROUNDS - 1
+                for url in TEST_URLS:
+                    start = time.monotonic()
+                    async with session.get(url) as resp:   # ssl-проверка ВКЛЮЧЕНА
+                        if resp.status not in (200, 204):
+                            return None
+                        await resp.read()
+                    ms = (time.monotonic() - start) * 1000
+                    if last_round:
+                        latencies.append(ms)
+
+        if not latencies:
+            return None
+        return sum(latencies) / len(latencies)
+
+    except Exception:
+        return None
+
+    finally:
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.terminate()
+                await asyncio.wait_for(proc.wait(), timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                    await proc.wait()
+                except Exception:
+                    pass
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        await _port_pool.put(port)
+
+
+# ============================================================
+# GEO СЕРВЕРА
+# ============================================================
+
+async def get_server_geo(session, ip):
+    """Возвращает (country_code, geo_name) или (None, None)."""
+    try:
+        if not ip:
+            return None, None
+
+        url = f"http://ip-api.com/json/{ip}?fields=status,countryCode,city"
+        timeout = aiohttp.ClientTimeout(total=8.0)
+
+        for attempt in range(2):
+            async with session.get(url, timeout=timeout) as response:
+                if response.status == 429:  # лимит — ждём и пробуем ещё раз
+                    await asyncio.sleep(5)
+                    continue
+                if response.status != 200:
+                    return None, None
+                data = await response.json(content_type=None)
+                if data.get("status") != "success":
+                    return None, None
+                country_code = data.get("countryCode")
+                return country_code, make_geo_name(country_code, data.get("city"))
+        return None, None
+    except Exception:
+        return None, None
+
+
+# ============================================================
+# СКАЧИВАНИЕ ПОДПИСОК
+# ============================================================
+
+def short_name(url):
+    """Короткое имя источника для лога (только домен)."""
+    name = urlparse(url).netloc or url
+    return name if len(name) <= 28 else name[:27] + "…"
+
+
+async def fetch(session, url):
+    try:
+        timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT)
+        async with session.get(url, timeout=timeout, allow_redirects=True) as response:
+            response.raise_for_status()
+            return await response.text(errors="ignore")
+    except Exception as e:
+        print(f"[!] {short_name(url)}: {str(e)[:60]}")
+        return None
+
+
+async def fetch_source(session, url):
+    raw = await fetch(session, url)
+    configs = extract_lines(raw) if raw else []
+    print(f"[i] {short_name(url)}: {len(configs)}")
+    return url, configs
+
+
+# ============================================================
+# ПРОВЕРКА ВСЕХ КАНДИДАТОВ
+# ============================================================
+
+async def check_all(candidates):
+    """Проверяет конфиги через xray.
+    Возвращает (working, failed): working — список (config, latency_ms),
+    failed — список реально проверенных, но нерабочих конфигов."""
+    semaphore = asyncio.Semaphore(CONCURRENCY)
+    working = []
+    failed = []
+    stop_at = TARGET_COUNT * EARLY_STOP_MULT if EARLY_STOP_MULT else None
+    stop_event = asyncio.Event()
+    done = 0
+    total = len(candidates)
+
+    async def worker(config):
+        nonlocal done
+        async with semaphore:
+            if stop_event.is_set():
+                return  # после ранней остановки не проверяем и не считаем нерабочим
+            try:
+                latency = await xray_real_check(config)
+            except Exception:
+                latency = None
+            done += 1
+            if latency is not None and latency <= MAX_PING_MS:
+                working.append((config, latency))
+                if stop_at and len(working) >= stop_at and not stop_event.is_set():
+                    stop_event.set()
+                    print(f"    xray {done}/{total} ✓{len(working)} — хватит, стоп")
+                    return
+            else:
+                failed.append(config)
+            if done % PROGRESS_EVERY == 0:
+                print(f"    xray {done}/{total} ✓{len(working)}")
+
+    await asyncio.gather(*(worker(c) for c in candidates))
+    return working, failed
+
+
+# ============================================================
+# УДАЛЕНИЕ ДУБЛЕЙ ПО РЕАЛЬНОМУ IP:ПОРТ
+# Разные домены/названия на один и тот же ip:порт — это один сервер.
+# Из группы остаётся самый быстрый.
+# ============================================================
+
+async def dedupe_by_ip(items, taken=None):
+    """items: список (config, latency), уже отсортированный по пингу.
+    taken: множество (ip, port), которые уже заняты (закреплённые)."""
+    seen = set(taken or ())
+
+    hosts = {get_host_port(c)[0] for c, _ in items if get_host_port(c)}
+    await asyncio.gather(*(resolve_ip(h) for h in hosts))
+
+    result = []
+    for config, latency in items:
+        hp = get_host_port(config)
+        if not hp:
+            result.append((config, latency))
+            continue
+        ip = _dns_cache.get(hp[0]) or hp[0]
+        key = (ip, hp[1])
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append((config, latency))
+    return result
+
+
+# ============================================================
+# ПОВТОРНАЯ ПРОВЕРКА ЛУЧШИХ
+# Берём кандидатов по порядку пинга и проверяем второй раз отдельным xray.
+# Остаются только те, кто прошёл оба раза. Идём, пока не наберём TARGET_COUNT.
+# ============================================================
+
+async def confirm_best(items):
+    confirmed = []
+    idx = 0
+    semaphore = asyncio.Semaphore(CONCURRENCY)
+
+    async def worker(config, first_latency):
+        async with semaphore:
+            try:
+                latency = await xray_real_check(config)
+            except Exception:
+                latency = None
+        if latency is not None and latency <= MAX_PING_MS:
+            confirmed.append((config, (first_latency + latency) / 2))
+
+    while idx < len(items) and len(confirmed) < TARGET_COUNT:
+        need = TARGET_COUNT - len(confirmed)
+        chunk = items[idx: idx + need + CONFIRM_SPARE]
+        idx += len(chunk)
+        await asyncio.gather(*(worker(c, l) for c, l in chunk))
+        print(f"    подтверждено {len(confirmed)}/{TARGET_COUNT} (просмотрено {idx}/{len(items)})")
+
+    confirmed.sort(key=lambda x: x[1])
+    return confirmed
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+async def main():
+    init_port_pool(CONCURRENCY)
+
+    # ---------- 1. скачиваем ВСЕ подписки ----------
+    print("[i] Скачиваю подписки...")
+    async with aiohttp.ClientSession() as session:
+        results = await asyncio.gather(*(fetch_source(session, u) for u in SOURCES),
+                                       return_exceptions=True)
+
+        all_configs = []
+        source_of = {}  # ключ конфига -> url источника (первого, где он встретился)
+        for i, r in enumerate(results, 1):
+            if isinstance(r, tuple):
+                url, cfgs = r
+                for c in cfgs:
+                    source_of.setdefault(dedupe_key(c), url)
+                all_configs.extend(cfgs)
+            else:
+                print(f"[!] Источник #{i}: ошибка {str(r)[:60]}")
+
+        print(f"[i] Всего скачано: {len(all_configs)}")
+
+        # ---------- 2. удаляем дубликаты (до проверки — экономит время) ----------
+        # закреплённые никогда не удаляются; из подписок убираются только те,
+        # что уже есть среди закреплённых или повторяются внутри подписок
+        pinned = [c.strip() for c in PINNED_CONFIGS if c.strip()]
+        seen = {dedupe_key(c) for c in pinned if c.startswith(PROTOCOLS)}
+
+        unique = []
+        for c in all_configs:
+            k = dedupe_key(c)
+            if k in seen:
+                continue
+            seen.add(k)
+            unique.append(c)
+
+        print(f"[i] После удаления дубликатов: {len(unique)}")
+
+        # проверяем только то, что реально можно проверить через xray
+        candidates = [c for c in unique if c.startswith(XRAY_SUPPORTED)]
+        skipped = len(unique) - len(candidates)
+        if skipped:
+            print(f"[i] Без проверки (hy2/tuic/ssr): {skipped}")
+
+        if not candidates:
+            print("[x] Нет конфигов для проверки.")
+            return
+
+        # статистика по источникам: url -> [проверено, нерабочих]
+        stats = {}
+
+        def count(config, ok):
+            s = stats.setdefault(source_of.get(dedupe_key(config)), [0, 0])
+            s[0] += 1
+            if not ok:
+                s[1] += 1
+
+        # ---------- 3. быстрая TCP-проверка ----------
+        print(f"\n[i] TCP: проверяю {len(candidates)}...")
+        alive = await tcp_filter(candidates)
+        alive_set = {c for c, _ in alive}
+        for c in candidates:
+            if c not in alive_set:
+                count(c, False)
+        print(f"[i] TCP ок: {len(alive)} из {len(candidates)}")
+
+        if not alive:
+            print("[x] Ни один сервер не ответил по TCP.")
+            return
+
+        # самые быстрые по TCP проверяем в xray первыми
+        alive.sort(key=lambda x: x[1])
+        candidates = [c for c, _ in alive]
+
+        # ---------- 3.1 реальная проверка через xray ----------
+        print(f"\n[i] xray: проверяю {len(candidates)}...")
+        working, failed = await check_all(candidates)
+        for c, _ in working:
+            count(c, True)
+        for c in failed:
+            count(c, False)
+        print(f"[✓] Рабочих: {len(working)}")
+
+        if not working:
+            print("[x] Рабочих конфигов нет.")
+            return
+
+        # ---------- 4. лучшие по пингу, без дублей по IP:порт, с повторной проверкой ----------
+        working.sort(key=lambda x: x[1])
+
+        # IP:порт закреплённых тоже считаем занятыми
+        taken = set()
+        for c in pinned:
+            if not c.startswith(PROTOCOLS):
+                continue
+            hp = get_host_port(c)
+            if hp:
+                ip = await resolve_ip(hp[0])
+                taken.add((ip or hp[0], hp[1]))
+
+        before = len(working)
+        working = await dedupe_by_ip(working, taken)
+        print(f"[i] Убрал дубли по IP:порт: {before - len(working)} (осталось {len(working)})")
+
+        if CONFIRM_BEST:
+            print("\n[i] Повторная проверка лучших...")
+            best = await confirm_best(working)
+        else:
+            best = working
+        best = best[:TARGET_COUNT]
+        print(f"[i] Беру лучших по пингу: {len(best)}")
+
+        if not best:
+            print("[x] После повторной проверки рабочих не осталось.")
+            return
+
+        # ---------- 5. страна/город + переименование (только для выбранных) ----------
+        print("\n[i] Определяю страны...")
+        geo_cache = {}
+        items = []  # (country_name, latency, renamed_line)
+        for i, (config, latency) in enumerate(best, 1):
+            hp = get_host_port(config)
+            code, name = None, None
+            if hp:
+                host = hp[0]
+                if host not in geo_cache:
+                    ip = await resolve_ip(host)
+                    geo_cache[host] = await get_server_geo(session, ip)
+                    await asyncio.sleep(GEO_DELAY)
+                code, name = geo_cache[host]
+            final_name = name or "🌐 Неизвестно"
+            country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
+            items.append((country_key, latency, rename_config(config, final_name)))
+            if i % 10 == 0 or i == len(best):
+                print(f"    гео {i}/{len(best)}")
+
+        # группируем по стране, внутри страны — по пингу
+        items.sort(key=lambda x: (x[0], x[1]))
+        renamed = [line for _, _, line in items]
+
+    # ---------- 6. сохраняем ----------
+    final_list = pinned + renamed
+
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_FILE.write_text("\n".join(final_list) + "\n", encoding="utf-8")
+
+    print()
+    print(f"[✓] Готово: {len(final_list)} (закр. {len(pinned)} + {len(renamed)})")
+    print(f"[✓] Файл: {OUTPUT_FILE}")
+
+    # ---------- 7. где больше всего нерабочих ----------
+    rows = [(url, tested, bad) for url, (tested, bad) in stats.items() if url and tested]
+    if rows:
+        rows.sort(key=lambda r: r[2], reverse=True)
+        print("\n[i] Нерабочих по источникам:")
+        for n, (url, tested, bad) in enumerate(rows):
+            icon = "🥴" if n == 0 else "  "
+            print(f"{icon} {short_name(url)}: {bad}/{tested} ({bad * 100 // tested}%)")
+        top_url, top_tested, top_bad = rows[0]
+        print(f"\n[!] Больше всего нерабочих: {short_name(top_url)} ({top_bad} из {top_tested})")
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n[!] Остановлено.")

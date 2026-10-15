@@ -36,7 +36,7 @@ jobs:
       - name: Run merge & health-check
         run: |
           set -e
-          python Mixer.py
+          python scripts/Mixer.py
 
       - name: Check output
         run: |

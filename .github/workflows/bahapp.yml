@@ -1,4 +1,4 @@
-name: Update VPN config 2
+name: BaHapp
 
 on:
   workflow_dispatch: {}      # + можно запустить руками

@@ -1,0 +1,147 @@
+name: Update VPN subscription
+
+on:
+  #schedule:
+    #- cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          set -e
+          python -m pip install --upgrade pip
+          pip install aiohttp aiohttp_socks
+
+      - name: Install Xray-core
+        run: |
+          set -e
+          curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+          unzip -o xray.zip -d xray_bin
+          sudo mv xray_bin/xray /usr/local/bin/xray
+          sudo chmod +x /usr/local/bin/xray
+          xray version
+
+      - name: Run merge & health-check
+        run: |
+          set -e
+          python merge_subscriptions.py
+
+      - name: Check output
+        run: |
+          set -e
+
+          if [ ! -f "output/sub.txt" ]; then
+            echo "[x] output/sub.txt не найден"
+            exit 1
+          fi
+
+          COUNT=$(grep -cE '^(vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic)://' output/sub.txt || true)
+
+          echo "[i] Конфигов в результате: ${COUNT}"
+
+          if [ "${COUNT}" -eq 0 ]; then
+            echo "[x] Подписка пустая"
+            exit 1
+          fi
+
+          echo "[+] Проверка результата пройдена"
+
+      - name: Push result to GitVerse
+        env:
+          GITVERSE_TOKEN: ${{ secrets.GITVERSE_TOKEN }}
+          GITVERSE_REPO: ${{ secrets.GITVERSE_REPO }}
+        run: |
+          set -e
+
+          if [ -z "${GITVERSE_TOKEN}" ]; then
+            echo "[x] GITVERSE_TOKEN не задан"
+            exit 1
+          fi
+
+          if [ -z "${GITVERSE_REPO}" ]; then
+            echo "[x] GITVERSE_REPO не задан"
+            exit 1
+          fi
+
+          git config --global user.email "actions@bots.local"
+          git config --global user.name "sub-updater-bot"
+
+          rm -rf gitverse_repo
+
+          echo "[i] Клонирование GitVerse..."
+
+          git clone --quiet \
+            "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO}" \
+            gitverse_repo
+
+          cp output/sub.txt gitverse_repo/sub.txt
+
+          cd gitverse_repo
+
+          git add sub.txt
+
+          if git diff --cached --quiet; then
+            echo "[i] Нет изменений"
+            exit 0
+          fi
+
+          git commit \
+            -m "auto: update subscription $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          git push origin master
+
+          echo "[+] Подписка успешно обновлена"
+
+  trigger-others:
+    needs: update
+    # По умолчанию запускается только если update прошёл успешно.
+    # Чтобы запускать даже после ошибки, замените на: if: always()
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger workflows (one after another)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "[x] GH_PAT не задан"
+            exit 1
+          fi
+
+          for wf in update-config.yml config.yml; do
+            echo "[i] Запуск ${wf}"
+
+            if ! gh workflow run "${wf}" --repo PizdukMod/Auto --ref main; then
+              echo "[!] ${wf} не запущен, пропускаем"
+              continue
+            fi
+
+            # даём GitHub время создать запуск
+            sleep 10
+
+            RUN_ID=$(gh run list --repo PizdukMod/Auto --workflow "${wf}" \
+              --event workflow_dispatch --limit 1 \
+              --json databaseId --jq '.[0].databaseId')
+
+            echo "[i] Ожидание завершения ${wf} (run ${RUN_ID})..."
+
+            gh run watch "${RUN_ID}" --repo PizdukMod/Auto --exit-status \
+              || echo "[!] ${wf} завершился с ошибкой, продолжаем"
+          done
+
+          echo "[+] Готово"

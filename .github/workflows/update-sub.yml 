@@ -36,7 +36,7 @@ jobs:
       - name: Run merge & health-check
         run: |
           set -e
-          python Update_sub.py
+          python scripts/Update_sub.py
 
       - name: Check output
         run: |

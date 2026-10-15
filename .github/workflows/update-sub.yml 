@@ -60,8 +60,8 @@ jobs:
 
       - name: Push result to GitVerse
         env:
-          GITVERSE_TOKEN: ${{ secrets.GITVERSE_TOKEN }}
-          GITVERSE_REPO: ${{ secrets.GITVERSE_REPO }}
+          GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
+          GITVERSE_REPO: ${{ secrets.PIZDUK_REPO }}
         run: |
           set -e
 
@@ -140,7 +140,7 @@ jobs:
 
             echo "[i] Ожидание завершения ${wf} (run ${RUN_ID})..."
 
-            gh run watch "${RUN_ID}" --repo PizdukMod/Auto --exit-status \
+            gh run watch "${RUN_ID}" --repo Pizduk/Auto --exit-status \
               || echo "[!] ${wf} завершился с ошибкой, продолжаем"
           done
 

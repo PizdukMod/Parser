@@ -104,6 +104,16 @@ TEST_URLS = [
 # Первый раунд — «холодный» (рукопожатие), последний — «тёплый», по нему считается пинг.
 CHECK_ROUNDS = 2
 
+# --- Реальная проверка выходного IP ---
+# Через каждый прокси спрашиваем у IP-эхо сервиса, какой у нас IP.
+IP_ECHO_URLS = [
+    "https://api.ipify.org",
+    "https://icanhazip.com",
+    "https://ifconfig.me/ip",
+]
+REQUIRE_EXIT_IP = True      # не получили выходной IP или он = нашему → конфиг нерабочий
+DEDUPE_BY_EXIT_IP = True    # дубли по реальному выходному IP
+
 # Повторная проверка лучших кандидатов отдельным запуском xray:
 # отсекает «мигающие» серверы, которые прошли проверку случайно.
 CONFIRM_BEST = True
@@ -124,6 +134,10 @@ PROTOCOLS = (
 # hy2/tuic/ssr по одному TCP-коннекту проверить нельзя (они на UDP),
 # поэтому в «рабочие» они не попадают.
 XRAY_SUPPORTED = ("vless://", "vmess://", "trojan://", "ss://")
+
+# Наш реальный IP (без прокси) и выходные IP конфигов
+_my_ip = None
+_exit_ip = {}               # config -> выходной IP
 
 
 # ============================================================
@@ -620,9 +634,31 @@ async def wait_local_port(proc, port, timeout):
 
 
 # ============================================================
+# ОПРЕДЕЛЕНИЕ IP ЧЕРЕЗ IP-ЭХО СЕРВИСЫ
+# Без прокси — наш реальный IP; через прокси — выходной IP конфига.
+# ============================================================
+
+async def fetch_ip(session, timeout=8.0):
+    t = aiohttp.ClientTimeout(total=timeout)
+    for url in IP_ECHO_URLS:
+        try:
+            async with session.get(url, timeout=t) as resp:
+                if resp.status != 200:
+                    continue
+                text = (await resp.text()).strip()
+            ipaddress.ip_address(text)  # убедимся, что это именно IP
+            return text
+        except Exception:
+            continue
+    return None
+
+
+# ============================================================
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY — возвращает пинг (мс) или None
 # Строго: все тестовые URL должны ответить во всех раундах,
 # HTTPS-сертификаты проверяются (подменённый/«дырявый» прокси не проходит).
+# Затем проверяется реальный выходной IP: он должен определяться
+# и не совпадать с нашим собственным.
 # ============================================================
 
 async def xray_real_check(line):
@@ -675,6 +711,13 @@ async def xray_real_check(line):
                     ms = (time.monotonic() - start) * 1000
                     if last_round:
                         latencies.append(ms)
+
+            # --- реальная проверка выходного IP ---
+            exit_ip = await fetch_ip(session, XRAY_TEST_TIMEOUT)
+            if REQUIRE_EXIT_IP and (not exit_ip or (_my_ip and exit_ip == _my_ip)):
+                return None
+            if exit_ip:
+                _exit_ip[line] = exit_ip
 
         if not latencies:
             return None
@@ -881,8 +924,9 @@ async def check_all(candidates):
 
 
 # ============================================================
-# УДАЛЕНИЕ ДУБЛЕЙ ПО РЕАЛЬНОМУ IP:ПОРТ
+# УДАЛЕНИЕ ДУБЛЕЙ ПО РЕАЛЬНОМУ IP:ПОРТ И ПО ВЫХОДНОМУ IP
 # Разные домены/названия на один и тот же ip:порт — это один сервер.
+# Конфиги с одинаковым выходным IP — тоже считаем дублями.
 # Из группы остаётся самый быстрый.
 # ============================================================
 
@@ -901,10 +945,12 @@ async def dedupe_by_ip(items, taken=None):
             result.append((config, latency))
             continue
         ip = _dns_cache.get(hp[0]) or hp[0]
-        key = (ip, hp[1])
-        if key in seen:
+        keys = [(ip, hp[1])]
+        if DEDUPE_BY_EXIT_IP and config in _exit_ip:
+            keys.append(("exit", _exit_ip[config]))
+        if any(k in seen for k in keys):
             continue
-        seen.add(key)
+        seen.update(keys)
         result.append((config, latency))
     return result
 
@@ -945,11 +991,17 @@ async def confirm_best(items):
 # ============================================================
 
 async def main():
+    global _my_ip
+
     init_port_pool(CONCURRENCY)
 
     # ---------- 1. скачиваем ВСЕ подписки ----------
-    print("[i] Скачиваю подписки...")
     async with aiohttp.ClientSession() as session:
+        # наш реальный IP (без прокси) — для проверки утечки
+        _my_ip = await asyncio.wait_for(fetch_ip(session), 20)
+        print(f"[i] Мой IP: {_my_ip or 'не определён (проверка совпадения с моим IP отключена)'}")
+
+        print("[i] Скачиваю подписки...")
         results = await asyncio.gather(*(fetch_source(session, u) for u in SOURCES),
                                        return_exceptions=True)
 
@@ -1018,7 +1070,7 @@ async def main():
         alive.sort(key=lambda x: x[1])
         candidates = [c for c, _ in alive]
 
-        # ---------- 3.1 реальная проверка через xray ----------
+        # ---------- 3.1 реальная проверка через xray (+ выходной IP) ----------
         print(f"\n[i] xray: проверяю {len(candidates)}...")
         working, failed = await check_all(candidates)
         for c, _ in working:
@@ -1031,7 +1083,7 @@ async def main():
             print("[x] Рабочих конфигов нет.")
             return
 
-        # ---------- 4. лучшие по пингу, без дублей по IP:порт, с повторной проверкой ----------
+        # ---------- 4. лучшие по пингу, без дублей, с повторной проверкой ----------
         working.sort(key=lambda x: x[1])
 
         # IP:порт закреплённых тоже считаем занятыми
@@ -1046,7 +1098,7 @@ async def main():
 
         before = len(working)
         working = await dedupe_by_ip(working, taken)
-        print(f"[i] Убрал дубли по IP:порт: {before - len(working)} (осталось {len(working)})")
+        print(f"[i] Убрал дубли (IP:порт / выходной IP): {before - len(working)} (осталось {len(working)})")
 
         if CONFIRM_BEST:
             print("\n[i] Повторная проверка лучших...")
@@ -1068,13 +1120,21 @@ async def main():
         async def geo_one(config):
             nonlocal geo_done
             async with geo_sem:
-                code, name = await xray_exit_geo(config)
-                if not code:  # запасной путь: гео по IP сервера
+                code, name = None, None
+                # 1) гео по уже известному выходному IP (без запуска xray)
+                exit_ip = _exit_ip.get(config)
+                if exit_ip:
+                    code, name = await geo_lookup(session, exit_ip)
+                # 2) через xray, если выходной IP неизвестен/не определился
+                if not code:
+                    code, name = await xray_exit_geo(config)
+                # 3) запасной путь: гео по IP сервера
+                if not code:
                     hp = get_host_port(config)
                     if hp:
                         ip = await resolve_ip(hp[0])
                         code, name = await get_server_geo(session, ip)
-                        await asyncio.sleep(GEO_DELAY)
+                await asyncio.sleep(GEO_DELAY)
                 geo_done += 1
                 if geo_done % 10 == 0 or geo_done == len(best):
                     print(f"    гео {geo_done}/{len(best)}")

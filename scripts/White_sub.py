@@ -78,8 +78,8 @@ WL_ONLY_RU_SERVERS = False   # True = оставлять только конфи
 # (включая поддомены). Список белых списков меняется — дополняй под себя.
 WL_DOMAINS = (
     # Яндекс
-    "yandex.ru", "yandex.com", "yandex.net", "ya.ru", "yastatic.net",
-    "yandexcloud.net", "dzen.ru", "kinopoisk.ru", "rutube.ru", "storage.yandex.net", "api-maps.yandex.ru",
+    "yandex.ru", "yandex.com", "yandex.net", "ya.ru", "video.yandex.ru", "yastatic.net",
+    "yandexcloud.net", "dzen.ru", "kinopoisk.ru", "rutube.ru", "storage.yandex.net", "api-maps.yandex.ru", "passport.yandex.ru",
     # VK / Mail.ru
     "vk.com", "vk.ru", "vkontakte.ru", "userapi.com", "vkuser.net", "vk-cdn.net",
     "mail.ru", "ok.ru", "my.com", "max.ru", "rambler.ru", "id.vk.ru", "cloud.mail.ru", "dowload.max.ru", "download.max.ru",

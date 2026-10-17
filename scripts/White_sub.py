@@ -79,12 +79,12 @@ WL_ONLY_RU_SERVERS = False   # True = оставлять только конфи
 WL_DOMAINS = (
     # Яндекс
     "yandex.ru", "yandex.com", "yandex.net", "ya.ru", "yastatic.net",
-    "yandexcloud.net", "dzen.ru", "kinopoisk.ru", "rutube.ru",
+    "yandexcloud.net", "dzen.ru", "kinopoisk.ru", "rutube.ru", "storage.yandex.net", "api-maps.yandex.ru",
     # VK / Mail.ru
     "vk.com", "vk.ru", "vkontakte.ru", "userapi.com", "vkuser.net", "vk-cdn.net",
-    "mail.ru", "ok.ru", "my.com", "max.ru", "rambler.ru",
+    "mail.ru", "ok.ru", "my.com", "max.ru", "rambler.ru", "id.vk.ru", "cloud.mail.ru", "dowload.max.ru", "download.max.ru",
     # Маркетплейсы / сервисы
-    "ozon.ru", "wildberries.ru", "wb.ru", "wbbasket.ru", "avito.ru", "2gis.ru", "2gis.com", "hh.ru", "cdek.ru",
+    "ozon.ru", "www.io.ozone.ru", "wildberries.ru", "wb.ru", "wbbasket.ru", "avito.ru", "2gis.ru", "2gis.com", "hh.ru", "cdek.ru",
     "x5.ru", "ads.x5.ru", "okko.tv", "dobro.ru", "maxtelemost.com",
     # Банки
     "sber.ru", "sberbank.ru", "sberdevices.ru", "tbank.ru", "tinkoff.ru",
@@ -92,7 +92,7 @@ WL_DOMAINS = (
     # Госуслуги / операторы / прочее
     "gosuslugi.ru", "mos.ru", "nalog.gov.ru", "gov.ru", "rzd.ru",
     "mts.ru", "megafon.ru", "beeline.ru", "tele2.ru",
-    "ria.ru", "lenta.ru", "rbc.ru", "kommersant.ru",
+    "ria.ru", "lenta.ru", "rbc.ru", "kommersant.ru", "optim.tildacdn.pub",
     # Домены авторов БС-конфигов (работают за счёт IP). "name.*" = любая зона (.homes, .net, .xyz ...)
     "sysopnova.art", "shprcdn.*", "portshaper.com", "cdnguard.org", "dismissaltree.net",
     "guardora.pro", "tunnelgate.org", "avroraservice.online", "centermass.net",

@@ -35,6 +35,18 @@ SOURCES = [
 
 
 # ============================================================
+# ЧЁРНЫЙ СПИСОК ДОМЕНОВ
+# Любой конфиг, где этот домен (или его поддомен) встречается в SNI / Host / адресе
+# сервера / тексте строки, выбрасывается ОТОВСЮДУ: из источников, из закреплённых
+# и из итогового файла.
+# ============================================================
+
+BLOCKED_DOMAINS = (
+    "utiltools.site",
+)
+
+
+# ============================================================
 # ЗАКРЕПЛЁННЫЕ КОНФИГИ
 # Добавляются в итоговую подписку БЕЗ проверки (пинг/живость не тестируются)
 # и не удаляются последующими запусками скрипта — просто впиши сюда строку(и)
@@ -46,8 +58,6 @@ PINNED_CONFIGS = [
     "#profile-web-page-url: https://t.me/PizMod",
     "#support-url: https://t.me/Harachok",
     "#profile-update-interval: 6",
-    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443?security=reality&encryption=none&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&headerType=none&fp=qq&type=tcp&flow=xtls-rprx-vision&sni=qq.utiltools.site#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA ",
-    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443?security=reality&encryption=none&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&headerType=none&fp=qq&type=tcp&flow=xtls-rprx-vision&sni=qq.utiltools.site#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%D1%8D%D1%82%D0%BE%202",
     "vless://6b134aff-450b-4a5f-8d1b-dac67ceb11d0@msc1.serverslocal.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=msc1.serverslocal.ru&fp=firefox&security=reality&pbk=qPh1iuwpELosLWTxOXyfCiMghs_sjSzCOGbkiF0gdkk&sid=f7e66e308136e1a1#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%F0%9F%8F%B3",
     "vless://adc11f30-e4cb-4985-bf5e-f9ded69c019f@90.156.218.163:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=eh.vk.ru&fp=qq&security=reality&pbk=fNfokzklCF4l_c8k8PciOCjm5ecNoF_sNLjEtaO-xzI&sid=db04ce8bdb8900f1#%E2%9A%A1%20%F0%9F%87%B7%F0%9F%87%BA%20%E2%98%AD%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%20%7C%20%D0%91%D0%B5%D0%BB%D1%8B%D0%B9%20IP%20%E2%98%AD%20%F0%9F%87%B7%F0%9F%87%BA%20%E2%9A%A1",
     "vless://03ca8c3f-e777-45b5-a1b1-592094ca99ee@79.174.92.222:443/?type=grpc&encryption=none&flow=&sni=m.vk.com&security=reality&pbk=_PYBo3dyZRpGC44vADqcmlBCSeAVh1X8l3mulghVsTI&sid=a1b2c3d4#%F0%9F%87%B7%F0%9F%87%BA%20%E2%98%80%EF%B8%8F%E2%9C%88%EF%B8%8F%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%F0%9F%8F%B3%EF%B8%8F%F0%9F%94%90",
@@ -78,13 +88,13 @@ WL_ONLY_RU_SERVERS = False   # True = оставлять только конфи
 # (включая поддомены). Список белых списков меняется — дополняй под себя.
 WL_DOMAINS = (
     # Яндекс
-    "yandex.ru", "yandex.com", "yandex.net", "ya.ru", "video.yandex.ru", "yastatic.net",
-    "yandexcloud.net", "dzen.ru", "kinopoisk.ru", "rutube.ru", "storage.yandex.net", "api-maps.yandex.ru", "passport.yandex.ru",
+    "yandex.ru", "yandex.com", "yandex.net", "ya.ru", "yastatic.net",
+    "yandexcloud.net", "dzen.ru", "kinopoisk.ru", "rutube.ru",
     # VK / Mail.ru
     "vk.com", "vk.ru", "vkontakte.ru", "userapi.com", "vkuser.net", "vk-cdn.net",
-    "mail.ru", "ok.ru", "my.com", "max.ru", "rambler.ru", "id.vk.ru", "cloud.mail.ru", "dowload.max.ru", "download.max.ru",
+    "mail.ru", "ok.ru", "my.com", "max.ru", "rambler.ru",
     # Маркетплейсы / сервисы
-    "ozon.ru", "www.io.ozone.ru", "wildberries.ru", "wb.ru", "wbbasket.ru", "avito.ru", "2gis.ru", "2gis.com", "hh.ru", "cdek.ru",
+    "ozon.ru", "wildberries.ru", "wb.ru", "wbbasket.ru", "avito.ru", "2gis.ru", "2gis.com", "hh.ru", "cdek.ru",
     "x5.ru", "ads.x5.ru", "okko.tv", "dobro.ru", "maxtelemost.com",
     # Банки
     "sber.ru", "sberbank.ru", "sberdevices.ru", "tbank.ru", "tinkoff.ru",
@@ -92,7 +102,7 @@ WL_DOMAINS = (
     # Госуслуги / операторы / прочее
     "gosuslugi.ru", "mos.ru", "nalog.gov.ru", "gov.ru", "rzd.ru",
     "mts.ru", "megafon.ru", "beeline.ru", "tele2.ru",
-    "ria.ru", "lenta.ru", "rbc.ru", "kommersant.ru", "optim.tildacdn.pub",
+    "ria.ru", "lenta.ru", "rbc.ru", "kommersant.ru",
     # Домены авторов БС-конфигов (работают за счёт IP). "name.*" = любая зона (.homes, .net, .xyz ...)
     "sysopnova.art", "shprcdn.*", "portshaper.com", "cdnguard.org", "dismissaltree.net",
     "guardora.pro", "tunnelgate.org", "avroraservice.online", "centermass.net",
@@ -120,6 +130,20 @@ GEO_URLS = (
     "http://ip-api.com/json/?fields=status,countryCode,city,query",
 )
 EXIT_GEO = {}  # config -> (country_code, geo_name, exit_ip)
+
+# --- РЕЗЕРВНЫЕ проверки гео для конфигов, которые не удалось переименовать ---
+# Проверяется IP сервера. Сначала русские сервисы, потом западные.
+# {ip} подставляется автоматически.
+GEO_FALLBACK_RU = (
+    ("sypexgeo", "https://api.sypexgeo.net/json/{ip}"),
+    ("2ip.me",   "https://api.2ip.me/geo.json?ip={ip}"),
+)
+GEO_FALLBACK_WEST = (
+    ("ipinfo.io", "https://ipinfo.io/{ip}/json"),
+    ("ipapi.co",  "https://ipapi.co/{ip}/json/"),
+    ("geojs.io",  "https://get.geojs.io/v1/ip/geo/{ip}.json"),
+)
+GEO_FALLBACK_TIMEOUT = 6.0
 
 MAX_PING_MS = 120         # жёсткая отсечка — медленнее не берём вообще
 GOOD_PING_MS = 50         # ориентир "хорошего" пинга, используется только в логах
@@ -164,7 +188,7 @@ COUNTRY_NAMES = {
     "SI": "Словения", "HR": "Хорватия", "RS": "Сербия", "LU": "Люксембург",
     "LI": "Лихтенштейн", "MT": "Мальта", "CY": "Кипр", "TH": "Таиланд",
     "VN": "Вьетнам", "ID": "Индонезия", "MY": "Малайзия", "PH": "Филиппины",
-    "NZ": "Новая Зеландия",
+    "NZ": "Новая Зеландия", "TW": "Тайвань", "EG": "Египет",
 }
 
 
@@ -188,11 +212,19 @@ def b64decode_safe(value):
 # ФЛАГ / НАЗВАНИЕ СТРАНЫ
 # ============================================================
 
+FLAG_RE = re.compile("[\U0001F1E6-\U0001F1FF]{2}")
+
+
 def get_country_flag(country_code):
     if not country_code or len(country_code) != 2 or not country_code.isalpha():
         return "🌐"
     country_code = country_code.upper()
     return chr(ord(country_code[0]) + 127397) + chr(ord(country_code[1]) + 127397)
+
+
+def flag_to_code(flag):
+    """🇷🇺 -> 'RU'"""
+    return "".join(chr(ord(ch) - 0x1F1E6 + 65) for ch in flag)
 
 
 def get_country_name(country_code):
@@ -345,6 +377,29 @@ def config_domains(line):
     return result
 
 
+def is_blocked(line):
+    """True, если конфиг связан с доменом из BLOCKED_DOMAINS (SNI/Host/адрес/текст строки/vmess)."""
+    if not BLOCKED_DOMAINS:
+        return False
+
+    low = line.lower()
+    low_decoded = unquote(low)
+    if line.startswith("vmess://"):
+        low_decoded += " " + (b64decode_safe(line[len("vmess://"):]) or "").lower()
+
+    for blocked in BLOCKED_DOMAINS:
+        blocked = blocked.lower()
+        if blocked in low or blocked in low_decoded:
+            return True
+
+    for domain in config_domains(line):
+        for blocked in BLOCKED_DOMAINS:
+            blocked = blocked.lower()
+            if domain == blocked or domain.endswith("." + blocked):
+                return True
+    return False
+
+
 def get_sni(line):
     """SNI конфига (или Host / адрес сервера, если SNI не задан)."""
     if line.startswith("vmess://"):
@@ -361,6 +416,14 @@ def get_sni(line):
         return unquote(value).split(",")[0].strip().lower()
     except Exception:
         return ""
+
+
+def flag_code_from_name(line):
+    """Код страны по первому флагу в исходном названии конфига (или None)."""
+    match = FLAG_RE.search(config_name(line))
+    if not match:
+        return None
+    return flag_to_code(match.group(0))
 
 
 def print_sni_stats(configs):
@@ -788,6 +851,73 @@ async def get_server_geo(session, host):
 
 
 # ============================================================
+# РЕЗЕРВНОЕ ГЕО: сначала русские сайты, потом западные
+# ============================================================
+
+def parse_geo_json(data):
+    """Универсальный разбор ответа гео-сервиса -> (country_code, city) или None."""
+    if not isinstance(data, dict):
+        return None
+
+    country = data.get("country")
+    code = None
+    if isinstance(country, dict):          # sypexgeo: {"country": {"iso": "RU"}}
+        code = country.get("iso")
+    elif isinstance(country, str) and len(country) == 2:   # ipinfo.io: {"country": "DE"}
+        code = country
+    code = code or data.get("country_code") or data.get("countryCode")
+
+    if not (isinstance(code, str) and len(code) == 2 and code.isalpha()):
+        return None
+
+    city = data.get("city")
+    if isinstance(city, dict):             # sypexgeo: {"city": {"name_ru": "..."}}
+        city = city.get("name_ru") or city.get("name_en")
+    if not isinstance(city, str):
+        city = None
+
+    return code.upper(), city
+
+
+async def resolve_ip(host):
+    try:
+        loop = asyncio.get_running_loop()
+        infos = await loop.getaddrinfo(host, None, family=socket.AF_INET, type=socket.SOCK_STREAM)
+        return infos[0][4][0]
+    except Exception:
+        return None
+
+
+async def fallback_geo(session, host):
+    """
+    Проверка IP сервера через другие сайты: сначала русские, потом западные.
+    Возвращает (country_code, geo_name, источник) или None.
+    """
+    ip = await resolve_ip(host)
+    if not ip:
+        return None
+
+    timeout = aiohttp.ClientTimeout(total=GEO_FALLBACK_TIMEOUT)
+
+    for group, services in (("RU", GEO_FALLBACK_RU), ("WEST", GEO_FALLBACK_WEST)):
+        for name, template in services:
+            try:
+                async with session.get(template.format(ip=ip), timeout=timeout) as response:
+                    if response.status != 200:
+                        continue
+                    data = await response.json(content_type=None)
+            except Exception:
+                continue
+
+            parsed = parse_geo_json(data)
+            if parsed:
+                code, city = parsed
+                return code, make_geo_name(code, city), f"{group}:{name}"
+
+    return None
+
+
+# ============================================================
 # FETCH
 # ============================================================
 
@@ -814,6 +944,12 @@ async def process_source(session, url, semaphore):
         return []
 
     configs = extract_lines(raw)
+
+    # выбрасываем всё из чёрного списка сразу, до любых проверок
+    before_block = len(configs)
+    configs = [c for c in configs if not is_blocked(c)]
+    blocked_count = before_block - len(configs)
+
     total_found = len(configs)
     by_domain = []
     by_ru_ip = []
@@ -846,6 +982,8 @@ async def process_source(session, url, semaphore):
     print()
     print("[i] Источник:")
     print(f"    {url}")
+    if blocked_count:
+        print(f"    выброшено по чёрному списку: {blocked_count}")
     if WHITELIST_ONLY:
         print(f"    найдено: {total_found}, из них белых списков: {len(configs)} "
               f"(по SNI/названию: {len(by_domain)}, по IP в РФ: {len(by_ru_ip)})")
@@ -999,22 +1137,46 @@ async def main():
 
         geo_entries = []  # (config, latency, country_code, geo_name)
         geo_cache = {}
+        fallback_cache = {}
 
         for index, (config, latency) in enumerate(all_entries, 1):
+            country_code, geo_name, source = None, None, "выход через прокси"
+
             info = EXIT_GEO.get(config)
             if info:
                 country_code, geo_name, _ = info
-            else:  # hysteria/tuic/ssr или гео через прокси не ответило — по адресу сервера
+            else:
                 hp = get_host_port(config)
-                if not hp:
-                    continue
-                host = hp[0]
-                if host not in geo_cache:
-                    geo_cache[host] = await get_server_geo(session, host)
-                country_code, geo_name = geo_cache[host]
+                host = hp[0] if hp else None
+
+                # 1) по адресу сервера через ip-api.com (hysteria/tuic/ssr или прокси-гео не ответило)
+                if host:
+                    if host not in geo_cache:
+                        geo_cache[host] = await get_server_geo(session, host)
+                    country_code, geo_name = geo_cache[host]
+                    source = "ip-api.com"
+
+                # 2) не переименовался -> другие сайты: сначала русские, потом западные
+                if host and not geo_name:
+                    if host not in fallback_cache:
+                        fallback_cache[host] = await fallback_geo(session, host)
+                    result = fallback_cache[host]
+                    if result:
+                        country_code, geo_name, source = result
+
+                # 3) всё равно не вышло -> берём флаг из начала исходного названия
+                #    и подписываем страну этого флага
+                if not geo_name:
+                    flag_code = flag_code_from_name(config)
+                    if flag_code:
+                        country_code = flag_code
+                        geo_name = make_geo_name(flag_code, None)
+                        source = "флаг из названия"
+
             geo_entries.append((config, latency, country_code, geo_name))
 
-            print(f"    [{index}/{len(all_entries)}] {geo_name or '🌐 Неизвестно'}")
+            print(f"    [{index}/{len(all_entries)}] {geo_name or '🌐 Неизвестно (имя не менял)'}"
+                  f"  <- {source if geo_name else 'нигде не определилась'}")
 
     if WHITELIST_ONLY and WL_ONLY_RU_SERVERS:
         before = len(geo_entries)
@@ -1031,13 +1193,19 @@ async def main():
         renamed_config = rename_config(config, geo_name) if geo_name else config
         renamed.append(renamed_config)
 
-    # закреплённые конфиги — без проверки, всегда в начале списка
-    pinned = [c.strip() for c in PINNED_CONFIGS if c.strip()]
+    # закреплённые конфиги — без проверки, всегда в начале списка (кроме чёрного списка)
+    pinned = [c.strip() for c in PINNED_CONFIGS if c.strip() and not is_blocked(c)]
     if pinned:
         print()
         print(f"[i] Добавляю закреплённых конфигов: {len(pinned)} (без проверки)")
 
     final_list = pinned + renamed
+
+    # последняя страховка: ничего из чёрного списка в файл не попадёт
+    before_final = len(final_list)
+    final_list = [line for line in final_list if not is_blocked(line)]
+    if len(final_list) != before_final:
+        print(f"[i] В последний момент убрано по чёрному списку: {before_final - len(final_list)}")
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_FILE.write_text("\n".join(final_list) + "\n", encoding="utf-8")

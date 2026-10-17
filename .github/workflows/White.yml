@@ -112,12 +112,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger Wauto and Wahapp on GitVerse
+      - name: Trigger Wauto and Whapp on GitVerse
         env:
           GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
         run: |
           set -e
-          for wf in Wauto.yml Wahapp.yml; do
+          for wf in Wauto.yml Whapp.yml; do
             echo "[i] Запускаю $wf"
             CODE=$(curl -s -o resp.txt -w "%{http_code}" -X POST \
               "https://api.gitverse.ru/repos/Pizduk/Pars/actions/workflows/${wf}/dispatches?branch=master" \

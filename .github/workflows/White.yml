@@ -106,3 +106,30 @@ jobs:
           git push
 
           echo "[+] WlSubPiz.txt успешно обновлён"
+
+  trigger-others:
+    needs: update
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Wauto and Wahapp on GitVerse
+        env:
+          GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
+        run: |
+          set -e
+          for wf in Wauto.yml Wahapp.yml; do
+            echo "[i] Запускаю $wf"
+            CODE=$(curl -s -o resp.txt -w "%{http_code}" -X POST \
+              "https://api.gitverse.ru/repos/Pizduk/Pars/actions/workflows/${wf}/dispatches?branch=master" \
+              -H "Authorization: Bearer ${GITVERSE_TOKEN}" \
+              -H "Accept: application/vnd.gitverse.object+json;version=1" \
+              -H "Content-Type: application/json" \
+              -d '{}')
+            if [ "${CODE}" != "204" ]; then
+              echo "[x] $wf: HTTP ${CODE}"
+              cat resp.txt
+              exit 1
+            fi
+            echo "[+] $wf запущен"
+          done
+   

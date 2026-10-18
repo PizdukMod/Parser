@@ -45,10 +45,7 @@ PINNED_CONFIGS = [
     "#profile-update-interval: 6",
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443?security=reality&encryption=none&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&headerType=none&fp=qq&type=tcp&flow=xtls-rprx-vision&sni=qq.utiltools.site#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%28telegram-only%29",
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443?security=reality&encryption=none&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&headerType=none&fp=qq&type=tcp&flow=xtls-rprx-vision&sni=qq.utiltools.site#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%D1%8D%D1%82%D0%BE%202%20%28telegram-only%29",
-
-"vless://5d7e07ba-f460-4638-af79-bbcde67fcb6b@rus1.justnable.xyz:8443/?type=xhttp&encryption=none&flow=&path=%2Fxh&mode=auto&sni=www.asus.com&fp=firefox&security=reality&pbk=xlXuN8KDdbqGEsaj1m2D8NUnR5d2oeo5TT71RSMmfxY&sid=#%F0%9F%87%B7%F0%9F%87%BA%20%D0%9E%2C%20%D1%83%D1%80%D0%B0%2C%20%D0%B5%D1%81%D1%82%D1%8C%20%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D0%BD%D0%B5%D1%82%20%F0%9F%8C%90",
-
-"hy2://56ff50da-a238-4646-95ab-dd159634bd87@37.9.4.112:17701/?hop_interval=10&sni=ru03.arpanet-cdn.com&obfs=salamander&obfs-password=588c76723192f87cfe6d6786816177cd2bd9773acdc545928d7d1d5e8338d4ce#🇷🇺 Россия",
+    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@78.159.250.214:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=chrome&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=00000000#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BA%D0%B0%D1%80%D1%82%D0%BE%D1%88%D0%BA%D0%B0%20%F0%9F%A5%94",
     "vless://95a608b6-bff1-4e10-bb61-0a39f221bb7d@fitindoor.net:2053/?type=xhttp&encryption=none&flow=&host=fitindoor.net&path=%2Fapi%2Fv1%2Fupload&mode=auto&security=tls&sni=fitindoor.net&alpn=h2%2Chttp%2F1.1&fp=firefox#%F0%9F%87%B7%F0%9F%87%BA%20%E0%BC%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%20%E0%BC%BB%20%F0%9F%93%B6",
     "vless://95a608b6-bff1-4e10-bb61-0a39f221bb7d@randomquaint.net:2053/?type=xhttp&encryption=none&flow=&host=randomquaint.net&path=%2Fapi%2Fv1%2Fupload&mode=auto&security=tls&sni=randomquaint.net&alpn=h2%2Chttp%2F1.1&fp=firefox#%F0%9F%87%B7%F0%9F%87%BA%20%E0%BC%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%20%E0%BC%BB%20%F0%9F%9B%B0",
     "hy2://7ab3c77e-8fcc-4848-918f-cae3d4eac794@194.87.118.184:2053/?hop_interval=10&sni=match-stream.lovkisport.blog#🇷🇺 Россия",
@@ -57,16 +54,16 @@ PINNED_CONFIGS = [
     "vmess://eyJhZGQiOiJjZi4wc20uY29tIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3M/ZWRcdTAwM2QyMDQ4IiwicG9ydCI6IjgwIiwicHMiOiLwn4e68J+HuCDinKYg0KHQqNCQIOKcpiDwn4yAIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
     "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.204:8080#%E2%9C%A6%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9C%A7%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9C%A7%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9C%A6",
     "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.195:8080#%E2%9F%A1%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9C%A6%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9C%A6%20%F0%9F%87%B3%F0%9F%87%B1%20%E2%9F%A1",
-
-"vless://5d7e07ba-f460-4638-af79-bbcde67fcb6b@nl1.justnable.xyz:2053/?type=grpc&encryption=none&flow=&serviceName=grpc&sni=www.intel.com&fp=random&security=reality&pbk=xlXuN8KDdbqGEsaj1m2D8NUnR5d2oeo5TT71RSMmfxY&sid=#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
-
-"vless://082f5694-9019-4110-b67b-8125dbb9bab8@api.oblachnyservis.cc:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=api.oblachnyservis.cc&fp=qq&security=reality&pbk=r5WB5FnSCt4eeBC1FJMfkWHbzsMuabo0Rc6wuAhlZUs&sid=a8#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0%20%F0%9F%A4%96",
- "hy2://mkL3AfdSZIpTWRB9TcWPn9vywPGN89MRHg3ToRDj@91.196.32.163:443/?insecure=1&hop_interval=10&sni=germany3.h2corp.local#❃ 🇩🇪 ✾ Германия ✾ 🇩🇪 ❃",
+    "vless://6b134aff-450b-4a5f-8d1b-dac67ceb11d0@151.241.166.137.sslip.io:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=151.241.166.137.sslip.io&fp=firefox&security=reality&pbk=HhY8AOOPbY7Aah3XHlAUYYbXR8kSncqslAvY8iUbnUc&sid=90265b4bea0f563a#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0",
+    "hy2://mkL3AfdSZIpTWRB9TcWPn9vywPGN89MRHg3ToRDj@91.196.32.163:443/?insecure=1&hop_interval=10&sni=germany3.h2corp.local#❃ 🇩🇪 ✾ Германия ✾ 🇩🇪 ❃",
     "vless://f55e9aba-7b14-4f6f-b59a-d5b3d45c9309@193.233.74.6:8444/?type=grpc&encryption=none&flow=&serviceName=GunService&sni=github.com&security=reality&pbk=FWitre1jinQR7qz5HQ0q2Q4Gg9xA9B0SyizCziN7Ch0&sid=457fab2ac885dbe0#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F",
-  "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.178:8080#%F0%9F%87%AC%F0%9F%87%A7%20%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%BE%D0%B1%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20ss",
+    "vless://03ca8c3f-e777-45b5-a1b1-592094ca99ee@79.174.92.222:443/?type=grpc&encryption=none&flow=&sni=m.vk.com&fp=chrome&security=reality&pbk=_PYBo3dyZRpGC44vADqcmlBCSeAVh1X8l3mulghVsTI&sid=a1b2c3d4#%F0%9F%87%A9%F0%9F%87%AA%20%E2%AA%A2%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%AA%A1%20%F0%9F%8D%BA",
+    "vless://6b134aff-450b-4a5f-8d1b-dac67ceb11d0@germ2.serverslocal.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=germ2.serverslocal.ru&fp=firefox&security=reality&pbk=uLuPk7Ee7W9BcvjgM2FJHYG2NJxEeEkP7QVL8jYudhI&sid=aa9bfaebd76d8b95#%F0%9F%87%A9%F0%9F%87%AA%20%E2%8A%B9%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%8A%B9%20%E2%9A%99%EF%B8%8F",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.18:443/?type=grpc&encryption=none&flow=&serviceName=node.v2.ObjectService&sni=rs1.univesalsrv.com&fp=chrome&security=reality&pbk=upIzyaSbVz2ZK6KfGtXmPl_-sCwn8XLDyFDH5CsL9iY&sid=ed0cd5cc2e26e6e7#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%E2%9A%A1",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.19:443/?type=grpc&encryption=none&flow=&serviceName=media.v1.ObjectService&sni=rs2.univesalsrv.com&fp=firefox&security=reality&pbk=tL16MVY08r-7YDXb1_gxuBBWInpSFp97ZLJ_ax3R2iE&sid=1469af2040b7c323#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%8C%BF",
+    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.22:443/?type=grpc&encryption=none&flow=&serviceName=media.v1.StreamService&sni=rs4.univesalsrv.com&fp=firefox&security=reality&pbk=sXsJ4ET-50TYqlhKZf03nPQr2JIy1F0D4m6lOsI0cAs&sid=861ac7d66953e55f#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%94%A5",
+    "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.178:8080#%F0%9F%87%AC%F0%9F%87%A7%20%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%BE%D0%B1%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20ss",
     "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpvWklvQTY5UTh5aGNRVjhrYTNQYTNB@82.38.31.54:8080#%F0%9F%87%AC%F0%9F%87%A7%20%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%BE%D0%B1%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20ss2",
-
-"vless://9ef61079-6f7d-4911-9608-943da85d8e6f@test.keoplentuio.xyz:2053/?type=tcp&encryption=none&flow=#%F0%9F%87%B9%F0%9F%87%B7%20%EA%A7%81%20%D0%A2%D1%83%D1%80%D1%86%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%8C%99",
     "vless://6bceb548-d9b6-461f-8e37-a5a7fbcdc2c8@milo.rubinaz.xyz:8080/?type=tcp&encryption=none&flow=#%F0%9F%87%A8%F0%9F%87%A6%20%EA%A7%81%20%D0%9A%D0%B0%D0%BD%D0%B0%D0%B4%D0%B0%20%EA%A7%82%20%F0%9F%8D%81",
     "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@bg2.univesalsrv.com:443/?type=grpc&encryption=none&flow=&serviceName=api.v2.PushService&fp=chrome&security=reality&pbk=0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4&sid=501ab3325b77e1ca#%F0%9F%87%A7%F0%9F%87%AC%20%EA%A7%81%20%D0%91%D0%BE%D0%BB%D0%B3%D0%B0%D1%80%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%8C%B9",
     "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@89.35.14.32:443/?type=grpc&encryption=none&flow=&serviceName=stats.v2.PushService&sni=md3.univesalsrv.com&fp=firefox&security=reality&pbk=q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ&sid=9a72d40f1ff882b3#%F0%9F%87%B2%F0%9F%87%A9%20%EA%A7%81%20%D0%9C%D0%BE%D0%BB%D0%B4%D0%BE%D0%B2%D0%B0%20%EA%A7%82%20%F0%9F%8D%87",
@@ -106,7 +103,20 @@ TEST_URLS = [
 
 # Строгая проверка: КАЖДЫЙ тестовый URL должен ответить в КАЖДОМ раунде.
 # Первый раунд — «холодный» (рукопожатие), последний — «тёплый», по нему считается пинг.
-CHECK_ROUNDS = 2
+CHECK_ROUNDS = 3
+
+# --- Защита от «соединение закрыто» и тайм-аутов ---
+IDLE_PAUSE = 2.0            # пауза перед повторным запросом по тому же соединению
+BURST_PARALLEL = 8          # параллельных запросов на новых соединениях
+BURST_MAX_FAILS = 0         # сколько из них можно провалить
+
+DOWNLOAD_URLS = [           # достаточно, чтобы прошёл ХОТЯ БЫ ОДИН
+    "https://speed.cloudflare.com/__down?bytes=1000000",
+    "https://proof.ovh.net/files/1Mb.dat",
+]
+DOWNLOAD_BYTES = 1_000_000
+DOWNLOAD_TIMEOUT = 15.0
+REQUIRE_DOWNLOAD = True     # False — если раннер не достаёт до DOWNLOAD_URLS
 
 # --- Реальная проверка выходного IP ---
 # Через каждый прокси спрашиваем у IP-эхо сервиса, какой у нас IP.
@@ -658,11 +668,32 @@ async def fetch_ip(session, timeout=8.0):
 
 
 # ============================================================
+# ОДИН ТЕСТОВЫЙ ЗАПРОС: бросает исключение при любой ошибке
+# (статус не 200/204, обрыв, тайм-аут, слишком короткое тело)
+# Возвращает время в мс.
+# ============================================================
+
+async def _fetch_ok(session, url, min_bytes=0, timeout=None):
+    start = time.monotonic()
+    kw = {"timeout": aiohttp.ClientTimeout(total=timeout)} if timeout else {}
+    async with session.get(url, **kw) as resp:
+        if resp.status not in (200, 204):
+            raise ValueError(f"status {resp.status}")
+        body = await resp.read()
+    if len(body) < min_bytes:
+        raise ValueError("short body")
+    return (time.monotonic() - start) * 1000
+
+
+# ============================================================
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY — возвращает пинг (мс) или None
 # Строго: все тестовые URL должны ответить во всех раундах,
 # HTTPS-сертификаты проверяются (подменённый/«дырявый» прокси не проходит).
-# Затем проверяется реальный выходной IP: он должен определяться
-# и не совпадать с нашим собственным.
+# Дальше:
+#   1) пауза и повторный запрос по тому же соединению (keep-alive);
+#   2) реальный выходной IP: определяется и не совпадает с нашим;
+#   3) параллельный залп на новых соединениях;
+#   4) скачивание ~1 МБ (обрывы посреди передачи, слишком медленные).
 # ============================================================
 
 async def xray_real_check(line):
@@ -707,21 +738,44 @@ async def xray_real_check(line):
             for rnd in range(CHECK_ROUNDS):
                 last_round = rnd == CHECK_ROUNDS - 1
                 for url in TEST_URLS:
-                    start = time.monotonic()
-                    async with session.get(url) as resp:   # ssl-проверка ВКЛЮЧЕНА
-                        if resp.status not in (200, 204):
-                            return None
-                        await resp.read()
-                    ms = (time.monotonic() - start) * 1000
+                    ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
                     if last_round:
                         latencies.append(ms)
 
-            # --- реальная проверка выходного IP ---
+            # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
+            await asyncio.sleep(IDLE_PAUSE)
+            for url in TEST_URLS:
+                await _fetch_ok(session, url)
+
+            # реальная проверка выходного IP
             exit_ip = await fetch_ip(session, XRAY_TEST_TIMEOUT)
             if REQUIRE_EXIT_IP and (not exit_ip or (_my_ip and exit_ip == _my_ip)):
                 return None
             if exit_ip:
                 _exit_ip[line] = exit_ip
+
+        # параллельный залп на НОВЫХ соединениях + загрузка файла
+        conn2 = aiohttp_socks.ProxyConnector.from_url(
+            f"socks5://127.0.0.1:{port}", force_close=True
+        )
+        async with aiohttp.ClientSession(connector=conn2, timeout=timeout) as s2:
+            urls = [TEST_URLS[i % len(TEST_URLS)] for i in range(BURST_PARALLEL)]
+            res = await asyncio.gather(*(_fetch_ok(s2, u) for u in urls),
+                                       return_exceptions=True)
+            if sum(isinstance(r, Exception) for r in res) > BURST_MAX_FAILS:
+                return None
+
+            if DOWNLOAD_URLS:
+                dl_ok = False
+                for url in DOWNLOAD_URLS:
+                    try:
+                        await _fetch_ok(s2, url, DOWNLOAD_BYTES * 0.9, DOWNLOAD_TIMEOUT)
+                        dl_ok = True
+                        break
+                    except Exception:
+                        continue
+                if REQUIRE_DOWNLOAD and not dl_ok:
+                    return None
 
         if not latencies:
             return None

@@ -7,12 +7,14 @@ import base64
 import ipaddress
 import json
 import re
+import shutil
 import socket
 import tempfile
 import os
 import itertools
 import time
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
@@ -99,12 +101,24 @@ GOOD_PING_MS = 300         # только для значков в логе
 MAX_TCP_PING_MS = 1700     # TCP-пинг выше этого (или нет ответа) — в xray не идёт
 TCP_CONCURRENCY = 200      # одновременных TCP-проверок
 
+# --- Скачивание подписок ---
 FETCH_TIMEOUT = 20.0
+FETCH_RETRIES = 3          # сколько раз пробовать каждый источник
+FETCH_HEADERS_LIST = [     # User-Agent меняется от попытки к попытке
+    {"User-Agent": "v2rayN/6.42"},
+    {"User-Agent": "Happ/1.0"},
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+]
 
-CONCURRENCY = 15           # одновременных xray-процессов
-XRAY_STARTUP_TIMEOUT = 6.0 # сек: максимум ждём, пока xray откроет локальный порт
+CONCURRENCY = 15           # одновременных xray/sing-box процессов
+XRAY_STARTUP_TIMEOUT = 6.0 # сек: максимум ждём, пока ядро откроет локальный порт
 XRAY_TEST_TIMEOUT = 8.0    # сек на ОДИН тестовый запрос через прокси
 XRAY_BINARY = "xray"       # должен быть в PATH
+
+# --- Hy2 (проверяется через sing-box, т.к. это UDP/QUIC) ---
+CHECK_HY2 = True           # False — не проверять hy2 вообще
+SINGBOX_BINARY = "sing-box"  # должен быть в PATH (нужна версия 1.11+)
+
 TEST_URLS = [
     "https://cp.cloudflare.com/generate_204",
     "https://www.gstatic.com/generate_204",
@@ -137,13 +151,13 @@ IP_ECHO_URLS = [
 REQUIRE_EXIT_IP = True      # не получили выходной IP или он = нашему → конфиг нерабочий
 DEDUPE_BY_EXIT_IP = True    # дубли по реальному выходному IP
 
-# Повторная проверка лучших кандидатов отдельным запуском xray:
+# Повторная проверка лучших кандидатов отдельным запуском ядра:
 # отсекает «мигающие» серверы, которые прошли проверку случайно.
 CONFIRM_BEST = True
 CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
 
-GEO_DELAY = 0.3            # пауза только для запасного гео по IP сервера
-PROGRESS_EVERY = 50        # как часто писать прогресс xray-проверки (раз в N конфигов)
+GEO_DELAY = 0.3            # пауза между гео-запросами
+PROGRESS_EVERY = 50        # как часто писать прогресс проверки (раз в N конфигов)
 BASE_LOCAL_PORT = 21000
 
 OUTPUT_FILE = Path("output/sub.txt")
@@ -153,10 +167,11 @@ PROTOCOLS = (
     "ssr://", "hysteria2://", "hy2://", "tuic://",
 )
 
-# Только эти протоколы можно реально проверить через xray.
-# hy2/tuic/ssr по одному TCP-коннекту проверить нельзя (они на UDP),
-# поэтому в «рабочие» они не попадают.
+# Через xray проверяются эти протоколы.
 XRAY_SUPPORTED = ("vless://", "vmess://", "trojan://", "ss://")
+
+# Hy2 — через sing-box (UDP, TCP-пинг к нему неприменим).
+HY2_SCHEMES = ("hy2://", "hysteria2://")
 
 # Наш реальный IP (без прокси) и выходные IP конфигов
 _my_ip = None
@@ -294,9 +309,125 @@ def dedupe_key(line):
         return (line,)
 
     scheme, _, rest = line.partition("://")
+    scheme = scheme.lower()
+    if scheme == "hysteria2":
+        scheme = "hy2"  # hy2:// и hysteria2:// — один и тот же протокол
     netloc = re.split(r"[/?#]", rest, maxsplit=1)[0]
     userinfo, _, hostport = netloc.rpartition("@")
-    return (scheme.lower(), userinfo, hostport.lower())
+    return (scheme, userinfo, hostport.lower())
+
+
+# ============================================================
+# РАЗБОР host:port (с поддержкой IPv6 и списков портов)
+# ============================================================
+
+def _split_hostport(hostport):
+    """'host:443' -> ('host', '443'); '[::1]:443' -> ('::1', '443');
+    'host:443,20000-30000' -> ('host', '443,20000-30000')."""
+    hostport = hostport.strip().rstrip("/")
+    if hostport.startswith("["):
+        host, _, rest = hostport[1:].partition("]")
+        return host, rest.lstrip(":")
+    if ":" not in hostport:
+        return hostport, ""
+    host, _, ports = hostport.rpartition(":")
+    return host, ports
+
+
+def _parse_ports(ports):
+    """Возвращает (основной_порт | None, [диапазоны 'a:b'])."""
+    single, ranges = None, []
+    for p in re.split(r"[,;]", ports or ""):
+        p = p.strip()
+        if not p:
+            continue
+        if p.isdigit():
+            if single is None:
+                single = int(p)
+        elif re.fullmatch(r"\d+[-:]\d+", p):
+            a, b = re.split(r"[-:]", p)
+            ranges.append(f"{a}:{b}")
+    return single, ranges
+
+
+# ============================================================
+# HY2: разбор URI
+# hy2://auth@host:port/?sni=...&insecure=1&obfs=salamander&obfs-password=...&mport=...#name
+# ============================================================
+
+def split_hy2(line):
+    """Возвращает (auth, host, ports_str, params) или None."""
+    try:
+        body = line.split("://", 1)[1].split("#", 1)[0]
+        main, _, query = body.partition("?")
+        netloc = main.split("/", 1)[0]
+        userinfo, _, hostport = netloc.rpartition("@")
+        host, ports = _split_hostport(hostport)
+        if not host:
+            return None
+        params = {k.lower(): v[0]
+                  for k, v in parse_qs(query, keep_blank_values=True).items() if v}
+        return unquote(userinfo), host, ports, params
+    except Exception:
+        return None
+
+
+def parse_hy2(line):
+    """Outbound для sing-box или None."""
+    try:
+        parts = split_hy2(line)
+        if not parts:
+            return None
+        auth, host, ports, params = parts
+
+        single, ranges = _parse_ports(ports)
+        mport = first(params, "mport")
+        if mport:
+            s2, r2 = _parse_ports(mport)
+            ranges += r2
+            single = single or s2
+        if not single and ranges:
+            single = int(ranges[0].split(":")[0])
+        if not (auth and host and single):
+            return None
+
+        sni = first(params, "sni", "peer") or host
+        insecure = str(first(params, "insecure", "allowinsecure") or "0").lower() in ("1", "true", "yes")
+        if first(params, "pinsha256"):
+            insecure = True  # закрепление сертификата здесь не проверяем
+
+        alpn = first(params, "alpn")
+        tls = {
+            "enabled": True,
+            "server_name": sni,
+            "insecure": insecure,
+            "alpn": [a for a in unquote(alpn).split(",") if a] if alpn else ["h3"],
+        }
+
+        outbound = {
+            "type": "hysteria2",
+            "tag": "proxy",
+            "server": host,
+            "server_port": single,
+            "password": auth,
+            "tls": tls,
+        }
+
+        if ranges:  # port hopping
+            outbound["server_ports"] = ranges
+            hop = first(params, "hop_interval", "hopinterval")
+            if hop and str(hop).isdigit():
+                outbound["hop_interval"] = f"{hop}s"
+
+        if (first(params, "obfs") or "").lower() == "salamander":
+            obfs_pw = first(params, "obfs-password", "obfs_password")
+            if not obfs_pw:
+                return None
+            outbound["obfs"] = {"type": "salamander", "password": obfs_pw}
+
+        return outbound
+    except Exception:
+        return None
 
 
 # ============================================================
@@ -316,6 +447,25 @@ def get_host_port(line):
                 return host, port
         except Exception:
             return None
+        return None
+
+    if line.startswith(HY2_SCHEMES):
+        parts = split_hy2(line)
+        if not parts:
+            return None
+        _, host, ports, params = parts
+        single, ranges = _parse_ports(ports)
+        if not single:
+            _, r2 = _parse_ports(first(params, "mport") or "")
+            if r2:
+                single = int(r2[0].split(":")[0])
+        return (host, single) if (host and single) else None
+
+    if line.startswith("ss://"):
+        ob = parse_ss(line)
+        if ob:
+            srv = ob["settings"]["servers"][0]
+            return srv["address"], srv["port"]
         return None
 
     try:
@@ -483,25 +633,40 @@ def parse_trojan(line):
 
 
 def parse_ss(line):
+    """Shadowsocks. Понимает:
+      ss://BASE64(method:password)@host:port#name        (SIP002)
+      ss://method:password@host:port#name                (без base64, в т.ч. SS-2022)
+      ss://BASE64(method:password@host:port)#name        (старый формат)
+      IPv6-хосты [::1]:port.
+    SS с plugin (obfs/v2ray-plugin) xray не умеет — такие пропускаем."""
     try:
-        body = line[len("ss://"):]
-        userinfo_part, _, rest = body.partition("@")
-        if not rest:
+        body = line[len("ss://"):].split("#", 1)[0]
+        main, _, query = body.partition("?")
+        if "plugin=" in query.lower():
             return None
-        # ss с плагином (obfs и т.п.) xray не умеет — такие не проверяем
-        if "plugin=" in rest.lower():
-            return None
-        hostport_part = rest.split("#", 1)[0].split("?", 1)[0].rstrip("/")
-        host, _, port_s = hostport_part.rpartition(":")
-        port = int(port_s) if port_s.isdigit() else None
+        main = main.rstrip("/")
+
+        if "@" not in main:
+            # старый формат: всё целиком в base64
+            decoded = b64decode_safe(unquote(main))
+            if not decoded or "@" not in decoded:
+                return None
+            main = decoded
+
+        userinfo, _, hostport = main.rpartition("@")
+        host, ports = _split_hostport(hostport)
+        port = int(ports) if ports.isdigit() else None
         if not (host and port):
             return None
 
-        decoded = b64decode_safe(unquote(userinfo_part))
-        creds = decoded if (decoded and ":" in decoded) else unquote(userinfo_part)
-        if ":" not in creds:
+        plain = unquote(userinfo)
+        creds = plain if ":" in plain else b64decode_safe(plain)
+        if not creds or ":" not in creds:
             return None
         method, password = creds.split(":", 1)
+        method = method.strip().lower()
+        if not method or not password:
+            return None
 
         return {
             "protocol": "shadowsocks",
@@ -575,6 +740,37 @@ def build_outbound(line):
     return None
 
 
+def build_core_config(line, port):
+    """Выбирает ядро и строит его конфиг с SOCKS-входом на 127.0.0.1:port.
+    Возвращает (бинарник, конфиг) или None, если конфиг не разобрать."""
+    if line.startswith(HY2_SCHEMES):
+        outbound = parse_hy2(line)
+        if not outbound:
+            return None
+        return SINGBOX_BINARY, {
+            "log": {"disabled": True},
+            "inbounds": [{
+                "type": "socks", "tag": "in",
+                "listen": "127.0.0.1", "listen_port": port,
+            }],
+            "outbounds": [outbound],
+        }
+
+    outbound = build_outbound(line)
+    if not outbound:
+        return None
+    return XRAY_BINARY, {
+        "log": {"loglevel": "none"},
+        "inbounds": [{
+            "listen": "127.0.0.1",
+            "port": port,
+            "protocol": "socks",
+            "settings": {"udp": False},
+        }],
+        "outbounds": [outbound],
+    }
+
+
 # ============================================================
 # ПУЛ ЛОКАЛЬНЫХ ПОРТОВ
 # ============================================================
@@ -589,7 +785,7 @@ def init_port_pool(n):
 
 
 # ============================================================
-# БЫСТРАЯ TCP-ПРОВЕРКА (до xray)
+# БЫСТРАЯ TCP-ПРОВЕРКА (до xray; к hy2 не применяется — он на UDP)
 # ============================================================
 
 async def tcp_ping(line):
@@ -631,16 +827,16 @@ async def tcp_filter(candidates):
 
 
 # ============================================================
-# ОЖИДАНИЕ ЛОКАЛЬНОГО ПОРТА XRAY
+# ОЖИДАНИЕ ЛОКАЛЬНОГО ПОРТА ЯДРА
 # (вместо слепого sleep: не даём ложных «не работает» при нагрузке
-#  и точно знаем, что запрос идёт именно в наш xray)
+#  и точно знаем, что запрос идёт именно в наше ядро)
 # ============================================================
 
 async def wait_local_port(proc, port, timeout):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if proc.returncode is not None:
-            return False  # xray упал — конфиг битый
+            return False  # ядро упало — конфиг битый
         try:
             _, writer = await asyncio.wait_for(
                 asyncio.open_connection("127.0.0.1", port), timeout=0.5
@@ -654,6 +850,55 @@ async def wait_local_port(proc, port, timeout):
         except Exception:
             await asyncio.sleep(0.1)
     return False
+
+
+# ============================================================
+# ЗАПУСК ЯДРА (xray или sing-box) ДЛЯ ОДНОГО КОНФИГА
+# Отдаёт локальный SOCKS-порт или None, если ядро не поднялось /
+# конфиг не разобрался. По выходу всё гасит и освобождает порт.
+# ============================================================
+
+@asynccontextmanager
+async def running_core(line):
+    port = await _port_pool.get()
+    proc = None
+    tmp_path = None
+    try:
+        spec = build_core_config(line, port)
+        if not spec:
+            yield None
+            return
+        binary, cfg = spec
+
+        fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="core_")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(cfg, f)
+
+        proc = await asyncio.create_subprocess_exec(
+            binary, "run", "-c", tmp_path,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+
+        ok = await wait_local_port(proc, port, XRAY_STARTUP_TIMEOUT)
+        yield port if ok else None
+    finally:
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.terminate()
+                await asyncio.wait_for(proc.wait(), timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                    await proc.wait()
+                except Exception:
+                    pass
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        await _port_pool.put(port)
 
 
 # ============================================================
@@ -695,7 +940,7 @@ async def _fetch_ok(session, url, min_bytes=0, timeout=None):
 
 
 # ============================================================
-# РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY — возвращает пинг (мс) или None
+# РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ ЯДРО (xray / sing-box) — возвращает пинг (мс) или None
 # Строго: все тестовые URL должны ответить во всех раундах,
 # HTTPS-сертификаты проверяются (подменённый/«дырявый» прокси не проходит).
 # Дальше:
@@ -703,119 +948,75 @@ async def _fetch_ok(session, url, min_bytes=0, timeout=None):
 #   2) реальный выходной IP: определяется и не совпадает с нашим;
 #   3) параллельный залп на новых соединениях;
 #   4) скачивание ~1 МБ (обрывы посреди передачи, слишком медленные).
+# Одинаково для vless / vmess / trojan / ss / hy2.
 # ============================================================
 
-async def xray_real_check(line):
-    outbound = build_outbound(line)
-    if not outbound:
-        return None
+async def _probe(line, port):
+    connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+    timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
 
-    port = await _port_pool.get()
-    proc = None
-    tmp_path = None
-
-    try:
-        xray_config = {
-            "log": {"loglevel": "none"},
-            "inbounds": [{
-                "listen": "127.0.0.1",
-                "port": port,
-                "protocol": "socks",
-                "settings": {"udp": False},
-            }],
-            "outbounds": [outbound],
-        }
-
-        fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="xr_")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(xray_config, f)
-
-        proc = await asyncio.create_subprocess_exec(
-            XRAY_BINARY, "run", "-c", tmp_path,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-
-        if not await wait_local_port(proc, port, XRAY_STARTUP_TIMEOUT):
-            return None
-
-        connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
-        timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
-
-        latencies = []
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-            for rnd in range(CHECK_ROUNDS):
-                last_round = rnd == CHECK_ROUNDS - 1
-                for url in TEST_URLS:
-                    ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
-                    if last_round:
-                        latencies.append(ms)
-
-            # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
-            await asyncio.sleep(IDLE_PAUSE)
+    latencies = []
+    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+        for rnd in range(CHECK_ROUNDS):
+            last_round = rnd == CHECK_ROUNDS - 1
             for url in TEST_URLS:
-                await _fetch_ok(session, url)
+                ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
+                if last_round:
+                    latencies.append(ms)
 
-            # реальная проверка выходного IP
-            exit_ip = await fetch_ip(session, XRAY_TEST_TIMEOUT)
-            if REQUIRE_EXIT_IP and (not exit_ip or (_my_ip and exit_ip == _my_ip)):
-                return None
-            if exit_ip:
-                _exit_ip[line] = exit_ip
+        # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
+        await asyncio.sleep(IDLE_PAUSE)
+        for url in TEST_URLS:
+            await _fetch_ok(session, url)
 
-        # параллельный залп на НОВЫХ соединениях + загрузка файла
-        conn2 = aiohttp_socks.ProxyConnector.from_url(
-            f"socks5://127.0.0.1:{port}", force_close=True
-        )
-        async with aiohttp.ClientSession(connector=conn2, timeout=timeout) as s2:
-            urls = [TEST_URLS[i % len(TEST_URLS)] for i in range(BURST_PARALLEL)]
-            res = await asyncio.gather(*(_fetch_ok(s2, u) for u in urls),
-                                       return_exceptions=True)
-            if sum(isinstance(r, Exception) for r in res) > BURST_MAX_FAILS:
-                return None
-
-            if DOWNLOAD_URLS:
-                dl_ok = False
-                for url in DOWNLOAD_URLS:
-                    try:
-                        await _fetch_ok(s2, url, DOWNLOAD_BYTES * 0.9, DOWNLOAD_TIMEOUT)
-                        dl_ok = True
-                        break
-                    except Exception:
-                        continue
-                if REQUIRE_DOWNLOAD and not dl_ok:
-                    return None
-
-        if not latencies:
+        # реальная проверка выходного IP
+        exit_ip = await fetch_ip(session, XRAY_TEST_TIMEOUT)
+        if REQUIRE_EXIT_IP and (not exit_ip or (_my_ip and exit_ip == _my_ip)):
             return None
-        return sum(latencies) / len(latencies)
+        if exit_ip:
+            _exit_ip[line] = exit_ip
 
+    # параллельный залп на НОВЫХ соединениях + загрузка файла
+    conn2 = aiohttp_socks.ProxyConnector.from_url(
+        f"socks5://127.0.0.1:{port}", force_close=True
+    )
+    async with aiohttp.ClientSession(connector=conn2, timeout=timeout) as s2:
+        urls = [TEST_URLS[i % len(TEST_URLS)] for i in range(BURST_PARALLEL)]
+        res = await asyncio.gather(*(_fetch_ok(s2, u) for u in urls),
+                                   return_exceptions=True)
+        if sum(isinstance(r, Exception) for r in res) > BURST_MAX_FAILS:
+            return None
+
+        if DOWNLOAD_URLS:
+            dl_ok = False
+            for url in DOWNLOAD_URLS:
+                try:
+                    await _fetch_ok(s2, url, DOWNLOAD_BYTES * 0.9, DOWNLOAD_TIMEOUT)
+                    dl_ok = True
+                    break
+                except Exception:
+                    continue
+            if REQUIRE_DOWNLOAD and not dl_ok:
+                return None
+
+    if not latencies:
+        return None
+    return sum(latencies) / len(latencies)
+
+
+async def real_check(line):
+    try:
+        async with running_core(line) as port:
+            if port is None:
+                return None
+            return await _probe(line, port)
     except Exception:
         return None
 
-    finally:
-        if proc is not None and proc.returncode is None:
-            try:
-                proc.terminate()
-                await asyncio.wait_for(proc.wait(), timeout=3)
-            except Exception:
-                try:
-                    proc.kill()
-                    await proc.wait()
-                except Exception:
-                    pass
-        if tmp_path:
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-        await _port_pool.put(port)
-
 
 # ============================================================
-# GEO: цепочка провайдеров (Sypex Geo — российский, первый)
-# ip="" -> определяет IP того, кто делает запрос
-# (через прокси это реальный выходной IP конфига)
+# GEO: консенсус нескольких сервисов
+# ip="" -> сначала узнаём выходной IP через прокси, затем страну по нему
 # ============================================================
 
 GEO_PROVIDERS = [
@@ -916,59 +1117,22 @@ async def get_server_geo(session, ip):
     return await geo_lookup(session, ip)
 
 
-async def xray_exit_geo(line):
-    """Страна по РЕАЛЬНОМУ выходному IP: поднимаем xray и спрашиваем гео через прокси."""
-    outbound = build_outbound(line)
-    if not outbound:
-        return None, None
-
-    port = await _port_pool.get()
-    proc = None
-    tmp_path = None
+async def exit_geo(line):
+    """Страна по РЕАЛЬНОМУ выходному IP: поднимаем ядро и спрашиваем гео через прокси."""
     try:
-        cfg = {
-            "log": {"loglevel": "none"},
-            "inbounds": [{"listen": "127.0.0.1", "port": port,
-                          "protocol": "socks", "settings": {"udp": False}}],
-            "outbounds": [outbound],
-        }
-        fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="xg_")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(cfg, f)
-
-        proc = await asyncio.create_subprocess_exec(
-            XRAY_BINARY, "run", "-c", tmp_path,
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
-        )
-        if not await wait_local_port(proc, port, XRAY_STARTUP_TIMEOUT):
-            return None, None
-
-        connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
-        async with aiohttp.ClientSession(connector=connector) as s:
-            return await geo_lookup(s)
+        async with running_core(line) as port:
+            if port is None:
+                return None, None
+            connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+            async with aiohttp.ClientSession(connector=connector) as s:
+                return await geo_lookup(s)
     except Exception:
         return None, None
-    finally:
-        if proc is not None and proc.returncode is None:
-            try:
-                proc.terminate()
-                await asyncio.wait_for(proc.wait(), timeout=3)
-            except Exception:
-                try:
-                    proc.kill()
-                    await proc.wait()
-                except Exception:
-                    pass
-        if tmp_path:
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-        await _port_pool.put(port)
 
 
 # ============================================================
-# СКАЧИВАНИЕ ПОДПИСОК
+# СКАЧИВАНИЕ ПОДПИСОК (с повторами, разными User-Agent и запасным
+# вариантом без проверки SSL на последней попытке)
 # ============================================================
 
 def short_name(url):
@@ -978,14 +1142,23 @@ def short_name(url):
 
 
 async def fetch(session, url):
-    try:
-        timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT)
-        async with session.get(url, timeout=timeout, allow_redirects=True) as response:
-            response.raise_for_status()
-            return await response.text(errors="ignore")
-    except Exception as e:
-        print(f"[!] {short_name(url)}: {str(e)[:60]}")
-        return None
+    timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT)
+    last_err = None
+    for attempt in range(FETCH_RETRIES):
+        headers = FETCH_HEADERS_LIST[attempt % len(FETCH_HEADERS_LIST)]
+        # последняя попытка — без проверки SSL
+        ssl_opt = False if attempt == FETCH_RETRIES - 1 else None
+        try:
+            async with session.get(url, headers=headers, timeout=timeout,
+                                   allow_redirects=True, ssl=ssl_opt) as response:
+                response.raise_for_status()
+                return await response.text(errors="ignore")
+        except Exception as e:
+            last_err = e
+            await asyncio.sleep(1.5)
+    err = str(last_err) or type(last_err).__name__
+    print(f"[!] {short_name(url)}: {err[:60]}")
+    return None
 
 
 async def fetch_source(session, url):
@@ -1000,7 +1173,7 @@ async def fetch_source(session, url):
 # ============================================================
 
 async def check_all(candidates):
-    """Проверяет конфиги через xray.
+    """Проверяет конфиги через xray / sing-box.
     Возвращает (working, failed): working — список (config, latency_ms),
     failed — список реально проверенных, но нерабочих конфигов."""
     semaphore = asyncio.Semaphore(CONCURRENCY)
@@ -1017,7 +1190,7 @@ async def check_all(candidates):
             if stop_event.is_set():
                 return  # после ранней остановки не проверяем и не считаем нерабочим
             try:
-                latency = await xray_real_check(config)
+                latency = await real_check(config)
             except Exception:
                 latency = None
             done += 1
@@ -1025,12 +1198,12 @@ async def check_all(candidates):
                 working.append((config, latency))
                 if stop_at and len(working) >= stop_at and not stop_event.is_set():
                     stop_event.set()
-                    print(f"    xray {done}/{total} ✓{len(working)} — хватит, стоп")
+                    print(f"    проверено {done}/{total} ✓{len(working)} — хватит, стоп")
                     return
             else:
                 failed.append(config)
             if done % PROGRESS_EVERY == 0:
-                print(f"    xray {done}/{total} ✓{len(working)}")
+                print(f"    проверено {done}/{total} ✓{len(working)}")
 
     await asyncio.gather(*(worker(c) for c in candidates))
     return working, failed
@@ -1070,7 +1243,7 @@ async def dedupe_by_ip(items, taken=None):
 
 # ============================================================
 # ПОВТОРНАЯ ПРОВЕРКА ЛУЧШИХ
-# Берём кандидатов по порядку пинга и проверяем второй раз отдельным xray.
+# Берём кандидатов по порядку пинга и проверяем второй раз отдельным ядром.
 # Остаются только те, кто прошёл оба раза. Идём, пока не наберём TARGET_COUNT.
 # ============================================================
 
@@ -1082,7 +1255,7 @@ async def confirm_best(items):
     async def worker(config, first_latency):
         async with semaphore:
             try:
-                latency = await xray_real_check(config)
+                latency = await real_check(config)
             except Exception:
                 latency = None
         if latency is not None and latency <= MAX_PING_MS:
@@ -1099,6 +1272,12 @@ async def confirm_best(items):
     return confirmed
 
 
+def interleave(a, b):
+    """Чередует два списка: a1, b1, a2, b2, ... (чтобы hy2 не оказался
+    в хвосте и не отрезался ранней остановкой)."""
+    return [x for pair in itertools.zip_longest(a, b) for x in pair if x is not None]
+
+
 # ============================================================
 # MAIN
 # ============================================================
@@ -1108,10 +1287,17 @@ async def main():
 
     init_port_pool(CONCURRENCY)
 
+    hy2_enabled = CHECK_HY2 and shutil.which(SINGBOX_BINARY) is not None
+    if CHECK_HY2 and not hy2_enabled:
+        print(f"[!] {SINGBOX_BINARY} не найден в PATH — hy2 проверяться не будет")
+
     # ---------- 1. скачиваем ВСЕ подписки ----------
     async with aiohttp.ClientSession() as session:
         # наш реальный IP (без прокси) — для проверки утечки
-        _my_ip = await asyncio.wait_for(fetch_ip(session), 20)
+        try:
+            _my_ip = await asyncio.wait_for(fetch_ip(session), 20)
+        except Exception:
+            _my_ip = None
         print(f"[i] Мой IP: {_my_ip or 'не определён (проверка совпадения с моим IP отключена)'}")
 
         print("[i] Скачиваю подписки...")
@@ -1147,13 +1333,15 @@ async def main():
 
         print(f"[i] После удаления дубликатов: {len(unique)}")
 
-        # проверяем только то, что реально можно проверить через xray
-        candidates = [c for c in unique if c.startswith(XRAY_SUPPORTED)]
-        skipped = len(unique) - len(candidates)
+        # что проверяем: vless/vmess/trojan/ss через xray, hy2 через sing-box
+        xray_cands = [c for c in unique if c.startswith(XRAY_SUPPORTED)]
+        hy2_cands = [c for c in unique if c.startswith(HY2_SCHEMES)] if hy2_enabled else []
+        skipped = len(unique) - len(xray_cands) - len(hy2_cands)
         if skipped:
-            print(f"[i] Без проверки (hy2/tuic/ssr): {skipped}")
+            what = "tuic/ssr" if hy2_enabled else "hy2/tuic/ssr"
+            print(f"[i] Без проверки ({what}): {skipped}")
 
-        if not candidates:
+        if not xray_cands and not hy2_cands:
             print("[x] Нет конфигов для проверки.")
             return
 
@@ -1166,31 +1354,39 @@ async def main():
             if not ok:
                 s[1] += 1
 
-        # ---------- 3. быстрая TCP-проверка ----------
-        print(f"\n[i] TCP: проверяю {len(candidates)}...")
-        alive = await tcp_filter(candidates)
-        alive_set = {c for c, _ in alive}
-        for c in candidates:
-            if c not in alive_set:
-                count(c, False)
-        print(f"[i] TCP ок: {len(alive)} из {len(candidates)}")
+        # ---------- 3. быстрая TCP-проверка (только не-hy2) ----------
+        alive = []
+        if xray_cands:
+            print(f"\n[i] TCP: проверяю {len(xray_cands)}...")
+            alive = await tcp_filter(xray_cands)
+            alive_set = {c for c, _ in alive}
+            for c in xray_cands:
+                if c not in alive_set:
+                    count(c, False)
+            print(f"[i] TCP ок: {len(alive)} из {len(xray_cands)}")
 
-        if not alive:
+        # самые быстрые по TCP проверяем первыми
+        alive.sort(key=lambda x: x[1])
+        tcp_ok = [c for c, _ in alive]
+
+        if hy2_cands:
+            print(f"[i] Hy2 (UDP, без TCP-проверки): {len(hy2_cands)}")
+
+        candidates = interleave(tcp_ok, hy2_cands)
+        if not candidates:
             print("[x] Ни один сервер не ответил по TCP.")
             return
 
-        # самые быстрые по TCP проверяем в xray первыми
-        alive.sort(key=lambda x: x[1])
-        candidates = [c for c, _ in alive]
-
-        # ---------- 3.1 реальная проверка через xray (+ выходной IP) ----------
-        print(f"\n[i] xray: проверяю {len(candidates)}...")
+        # ---------- 3.1 реальная проверка (+ выходной IP) ----------
+        print(f"\n[i] Реальная проверка: {len(candidates)} "
+              f"(xray: {len(tcp_ok)}, hy2: {len(hy2_cands)})...")
         working, failed = await check_all(candidates)
         for c, _ in working:
             count(c, True)
         for c in failed:
             count(c, False)
-        print(f"[✓] Рабочих: {len(working)}")
+        hy2_ok = sum(1 for c, _ in working if c.startswith(HY2_SCHEMES))
+        print(f"[✓] Рабочих: {len(working)} (из них hy2: {hy2_ok})")
 
         if not working:
             print("[x] Рабочих конфигов нет.")
@@ -1234,14 +1430,14 @@ async def main():
             nonlocal geo_done
             async with geo_sem:
                 code, name = None, None
-                # 1) гео по уже известному выходному IP (без запуска xray)
+                # 1) гео по уже известному выходному IP (без запуска ядра)
                 exit_ip = _exit_ip.get(config)
                 if exit_ip:
                     code, name = await geo_lookup(session, exit_ip)
-                # 2) через xray, если выходной IP неизвестен/не определился
+                # 2) через ядро, если выходной IP неизвестен/не определился
                 if not code:
-                    code, name = await xray_exit_geo(config)
-                # 3) запасной путь: гео по IP сервера
+                    code, name = await exit_geo(config)
+                # 3) запасной путь: гео по IP сервера (по умолчанию выключен)
                 if not code:
                     hp = get_host_port(config)
                     if hp:

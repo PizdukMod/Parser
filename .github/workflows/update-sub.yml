@@ -33,7 +33,7 @@ jobs:
           sudo mv xray_bin/xray /usr/local/bin/xray
           sudo chmod +x /usr/local/bin/xray
           xray version
-            - name: Install sing-box
+      - name: Install sing-box
         run: |
           set -e
           VER=1.12.0

@@ -24,7 +24,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 # ============================================================
 
 SOURCES = [
-    "https://freevpnhappcluchi.duckdns.org/sub/3qjxa0px9dqfd01q",
+    "https://freevpnhappcluchi.duckdns.org/sub/q5n2g0rugwy9y4l0",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
     "https://gidroksi.fun/black-list",
     "https://sub.clearq.workers.dev/sub/clearqsite?id=Colab_VPN",

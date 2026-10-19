@@ -819,10 +819,17 @@ async def xray_real_check(line):
 # ============================================================
 
 GEO_PROVIDERS = [
-    ("sypex", "https://api.sypexgeo.net/json/{ip}"),
-    ("ipwho", "https://ipwho.is/{ip}"),
-    ("ipapi", "http://ip-api.com/json/{ip}?fields=status,countryCode,city"),
+    ("ipinfo", "https://ipinfo.io/{ip}/json"),
+    ("ipwho",  "https://ipwho.is/{ip}"),
+    ("geojs",  "https://get.geojs.io/v1/ip/geo/{ip}.json"),
+    ("dbip",   "https://api.db-ip.com/v2/free/{ip}"),
+    ("ipapico","https://ipapi.co/{ip}/json/"),
+    ("ipapi",  "http://ip-api.com/json/{ip}?fields=status,countryCode,city"),
+    ("sypex",  "https://api.sypexgeo.net/json/{ip}"),
 ]
+
+GEO_MIN_AGREE = 2              # минимум сервисов, согласных по стране
+GEO_USE_SERVER_FALLBACK = False  # гео по IP сервера часто врёт — выключено
 
 
 def parse_geo(kind, data):
@@ -835,10 +842,22 @@ def parse_geo(kind, data):
             if not data.get("success"):
                 return None, None
             cc, city = data.get("country_code"), data.get("city")
-        else:
+        elif kind == "ipapi":
             if data.get("status") != "success":
                 return None, None
             cc, city = data.get("countryCode"), data.get("city")
+        elif kind == "ipinfo":
+            cc, city = data.get("country"), data.get("city")
+        elif kind == "geojs":
+            cc, city = data.get("country_code"), data.get("city")
+        elif kind == "ipapico":
+            if data.get("error"):
+                return None, None
+            cc, city = data.get("country_code"), data.get("city")
+        elif kind == "dbip":
+            cc, city = data.get("countryCode"), data.get("city")
+        else:
+            return None, None
         if cc and len(cc) == 2 and cc.isalpha():
             return cc.upper(), city
     except Exception:
@@ -846,26 +865,53 @@ def parse_geo(kind, data):
     return None, None
 
 
+async def _geo_provider(session, idx, kind, tpl, ip):
+    try:
+        timeout = aiohttp.ClientTimeout(total=8.0)
+        async with session.get(tpl.format(ip=ip), timeout=timeout) as resp:
+            if resp.status != 200:
+                return idx, None, None
+            data = await resp.json(content_type=None)
+        code, city = parse_geo(kind, data)
+        return idx, code, city
+    except Exception:
+        return idx, None, None
+
+
 async def geo_lookup(session, ip=""):
-    """Возвращает (country_code, geo_name) или (None, None)."""
-    timeout = aiohttp.ClientTimeout(total=8.0)
-    for kind, tpl in GEO_PROVIDERS:
-        try:
-            async with session.get(tpl.format(ip=ip), timeout=timeout) as resp:
-                if resp.status != 200:
-                    continue
-                data = await resp.json(content_type=None)
-            code, city = parse_geo(kind, data)
-            if code:
-                return code, make_geo_name(code, city)
-        except Exception:
-            continue
-    return None, None
+    """Страна по КОНСЕНСУСУ нескольких сервисов. Возвращает (code, geo_name)."""
+    # через прокси сначала узнаём реальный выходной IP, потом спрашиваем про него
+    if not ip:
+        ip = await fetch_ip(session)
+        if not ip:
+            return None, None
+
+    results = await asyncio.gather(*(
+        _geo_provider(session, i, k, t, ip)
+        for i, (k, t) in enumerate(GEO_PROVIDERS)
+    ))
+
+    votes = {}  # code -> [(priority, city)]
+    for idx, code, city in results:
+        if code:
+            votes.setdefault(code, []).append((idx, city))
+    if not votes:
+        return None, None
+
+    responded = sum(len(v) for v in votes.values())
+    best = max(votes, key=lambda c: (len(votes[c]), -min(i for i, _ in votes[c])))
+    agree = len(votes[best])
+
+    # если ответили ≥2 сервиса, но двое не согласились — не верим никому
+    if responded >= GEO_MIN_AGREE and agree < GEO_MIN_AGREE:
+        return None, None
+
+    city = next((c for _, c in sorted(votes[best], key=lambda x: x[0]) if c), None)
+    return best, make_geo_name(best, city)
 
 
 async def get_server_geo(session, ip):
-    """Запасной вариант: гео по IP сервера (напрямую, без прокси)."""
-    if not ip:
+    if not ip or not GEO_USE_SERVER_FALLBACK:
         return None, None
     return await geo_lookup(session, ip)
 

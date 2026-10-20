@@ -154,7 +154,14 @@ jobs:
           GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
         run: |
           set -e
+          FIRST=1
           for wf in BL.yml bahapp.yml; do
+            if [ "${FIRST}" -eq 0 ]; then
+              echo "[i] Жду 10 секунд перед запуском $wf"
+              sleep 10
+            fi
+            FIRST=0
+
             echo "[i] Запускаю $wf"
             CODE=$(curl -s -o resp.txt -w "%{http_code}" -X POST \
               "https://api.gitverse.ru/repos/Pizduk/Pars/actions/workflows/${wf}/dispatches?branch=master" \

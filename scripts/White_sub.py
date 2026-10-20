@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import aiohttp_socks
 import base64
+import ipaddress
 import json
 import socket
 import tempfile
@@ -74,6 +75,11 @@ MIN_PER_SOURCE = 1
 # --- распределение по странам ---
 MAX_PER_COUNTRY = 15       # максимум конфигов на одну страну в итоговом файле (0 = без ограничения)
 MIN_COUNTRIES_KEEP_ALL = 0 # если стран меньше N — лимит по стране не применяется (0 = выключено)
+
+# --- удаление дубликатов ---
+DEDUPE_BY_EXIT_IP = True   # дубли по реальному выходному IP (из проверки через прокси).
+                           # Для каскадов РФ→мир разные входы могут выходить через один IP —
+                           # если конфигов остаётся слишком мало, поставь False
 
 # --- РЕЖИМ БЕЛЫХ СПИСКОВ (БС) ---
 WHITELIST_ONLY = True        # True = оставлять только конфиги белых списков
@@ -283,6 +289,35 @@ def extract_lines(raw):
             if line.startswith(PROTOCOLS):
                 result.append(line)
     return list(dict.fromkeys(result))
+
+
+# ============================================================
+# КЛЮЧ ДЛЯ УДАЛЕНИЯ ДУБЛИКАТОВ
+# Дубль = один и тот же сервер (протокол + хост + порт + uuid/пароль).
+# Название (#...) и мелкие параметры (fp, sni, sid, flow...) на ключ не влияют.
+# ============================================================
+
+_seen_keys = set()  # ключи уже занятых серверов (закреплённые + прошедшие фильтр)
+
+
+def dedupe_key(line):
+    if line.startswith("vmess://"):
+        data = b64decode_safe(line[len("vmess://"):])
+        if data:
+            try:
+                o = json.loads(data)
+                return ("vmess", str(o.get("add")).strip().lower(), str(o.get("port")), str(o.get("id")))
+            except Exception:
+                pass
+        return (line,)
+
+    scheme, _, rest = line.partition("://")
+    scheme = scheme.lower()
+    if scheme == "hysteria2":
+        scheme = "hy2"  # hy2:// и hysteria2:// — один и тот же протокол
+    netloc = re.split(r"[/?#]", rest, maxsplit=1)[0]
+    userinfo, _, hostport = netloc.rpartition("@")
+    return (scheme, userinfo, hostport.lower())
 
 
 # ============================================================
@@ -877,13 +912,33 @@ def parse_geo_json(data):
     return code.upper(), city
 
 
+# ============================================================
+# DNS (асинхронно, с кэшем) — нужен для фолбэк-гео и удаления дублей по IP
+# ============================================================
+
+_dns_cache = {}
+
+
 async def resolve_ip(host):
+    if host in _dns_cache:
+        return _dns_cache[host]
+    ip = None
     try:
-        loop = asyncio.get_running_loop()
-        infos = await loop.getaddrinfo(host, None, family=socket.AF_INET, type=socket.SOCK_STREAM)
-        return infos[0][4][0]
-    except Exception:
-        return None
+        ipaddress.ip_address(host)
+        ip = host
+    except ValueError:
+        try:
+            loop = asyncio.get_running_loop()
+            infos = await asyncio.wait_for(
+                loop.getaddrinfo(host, None, family=socket.AF_INET, type=socket.SOCK_STREAM),
+                timeout=5.0,
+            )
+            if infos:
+                ip = infos[0][4][0]
+        except Exception:
+            ip = None
+    _dns_cache[host] = ip
+    return ip
 
 
 async def fallback_geo(session, host):
@@ -991,6 +1046,21 @@ async def process_source(session, url, semaphore):
     if not configs:
         return []
 
+    # удаление дубликатов ДО проверки (сервер достаётся первому источнику, где встретился;
+    # закреплённые уже занесены в _seen_keys). Блок синхронный — гонок между источниками нет.
+    fresh = []
+    for c in configs:
+        k = dedupe_key(c)
+        if k in _seen_keys:
+            continue
+        _seen_keys.add(k)
+        fresh.append(c)
+    if len(fresh) != len(configs):
+        print(f"    дубликатов убрано до проверки: {len(configs) - len(fresh)}")
+    configs = fresh
+    if not configs:
+        return []
+
     async def worker(config):
         async with semaphore:
             try:
@@ -1036,6 +1106,39 @@ async def process_source(session, url, semaphore):
         print(f"    [!] Меньше {MIN_PER_SOURCE}")
 
     return best  # список (config, latency)
+
+
+# ============================================================
+# УДАЛЕНИЕ ДУБЛЕЙ ПО РЕАЛЬНОМУ IP:ПОРТ И ПО ВЫХОДНОМУ IP
+# Разные домены/названия на один и тот же ip:порт — это один сервер.
+# Конфиги с одинаковым выходным IP — тоже дубли (если DEDUPE_BY_EXIT_IP).
+# Из группы остаётся самый быстрый.
+# ============================================================
+
+async def dedupe_by_ip(items, taken=None):
+    """items: [(config, latency)], отсортированный по пингу.
+    taken: множество (ip, port), уже занятых закреплёнными."""
+    seen = set(taken or ())
+
+    hosts = {get_host_port(c)[0] for c, _ in items if get_host_port(c)}
+    await asyncio.gather(*(resolve_ip(h) for h in hosts))
+
+    result = []
+    for config, latency in items:
+        keys = []
+        hp = get_host_port(config)
+        if hp:
+            ip = _dns_cache.get(hp[0]) or hp[0]
+            keys.append((ip, hp[1]))
+        if DEDUPE_BY_EXIT_IP:
+            info = EXIT_GEO.get(config)
+            if info and info[2]:
+                keys.append(("exit", info[2]))
+        if any(k in seen for k in keys):
+            continue
+        seen.update(keys)
+        result.append((config, latency))
+    return result
 
 
 # ============================================================
@@ -1100,6 +1203,10 @@ async def main():
     init_port_pool(CONCURRENCY)
     semaphore = asyncio.Semaphore(CONCURRENCY)
 
+    # закреплённые: учитываем сразу, чтобы источники не дублировали их серверы
+    pinned = [c.strip() for c in PINNED_CONFIGS if c.strip() and not is_blocked(c)]
+    _seen_keys.update(dedupe_key(c) for c in pinned if c.startswith(PROTOCOLS))
+
     all_entries = []  # (config, latency)
 
     print("[i] Сбор конфигов...")
@@ -1114,16 +1221,24 @@ async def main():
             else:
                 print(f"[!] Источник #{index} завершился с ошибкой: {result}")
 
-        seen = set()
-        unique_entries = []
-        for config, latency in all_entries:
-            if config in seen:
-                continue
-            seen.add(config)
-            unique_entries.append((config, latency))
-        all_entries = unique_entries
+        # быстрые первыми — их и оставит дедупликация
+        all_entries.sort(key=lambda x: x[1])
 
+        # IP:порт закреплённых тоже считаем занятыми
+        taken = set()
+        for c in pinned:
+            if not c.startswith(PROTOCOLS):
+                continue
+            hp = get_host_port(c)
+            if hp:
+                ip = await resolve_ip(hp[0])
+                taken.add((ip or hp[0], hp[1]))
+
+        before = len(all_entries)
+        all_entries = await dedupe_by_ip(all_entries, taken)
         print()
+        print(f"[i] Убрал дубли (IP:порт / выходной IP): {before - len(all_entries)} (осталось {len(all_entries)})")
+
         print(f"[✓] Уникальных рабочих: {len(all_entries)}")
 
         if not all_entries:
@@ -1192,7 +1307,6 @@ async def main():
         renamed.append(renamed_config)
 
     # закреплённые конфиги — без проверки, всегда в начале списка (кроме чёрного списка)
-    pinned = [c.strip() for c in PINNED_CONFIGS if c.strip() and not is_blocked(c)]
     if pinned:
         print()
         print(f"[i] Добавляю закреплённых конфигов: {len(pinned)} (без проверки)")

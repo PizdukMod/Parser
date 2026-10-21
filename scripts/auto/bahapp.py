@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import sys
+import uuid
 from urllib.parse import parse_qs, unquote
 
 import requests
@@ -53,6 +54,12 @@ def parse_vless(link, used_tags):
         body = link[len("vless://"):]
         left, _, frag = body.partition("#")
         userinfo, _, hostpart = left.partition("@")
+        userinfo = unquote(userinfo)
+        try:
+            uuid.UUID(userinfo)
+        except ValueError:
+            print("skip invalid uuid: " + frag, file=sys.stderr)
+            return None
         hostname, _, query = hostpart.partition("?")
 
         host, _, port_raw = hostname.rpartition(":")

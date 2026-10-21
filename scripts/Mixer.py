@@ -32,7 +32,6 @@ SOURCES = [
     # --- добавлено из второй версии ---
     "https://gidroksi.fun/black-list",
     "https://sub.clearq.workers.dev/sub/clearqsite?id=Colab_VPN",
-    "https://raw.githubusercontent.com/MK-l4/EliteQ/main/EliteQ",
     "https://gist.githubusercontent.com/flexter151-rgb/de6108267d7a17ce217961b2b2e3accc/raw/b677202742aab271b311af8b808f6860dfc8fe99/gistfile1.txt",
     "https://github.com/Remiuc0ff/ya-nikogo-ne-ubival/raw/refs/heads/Remiuc0ff-patch-1/Owner-@remiuc",
     # Белые списки:

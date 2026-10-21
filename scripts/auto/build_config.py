@@ -135,6 +135,7 @@ def build_config(outbounds):
     return {
         "remarks": REMARKS,
         "log": {"loglevel": "warning"},
+        "dns": {"servers": ["1.1.1.1", "8.8.8.8"]},
         "observatory": {
             "subjectSelector": tags,
             "probeUrl": PROBE_URL,
@@ -163,7 +164,7 @@ def build_config(outbounds):
             {"tag": "block", "protocol": "blackhole", "settings": {}},
         ],
         "routing": {
-            "domainStrategy": "AsIs",
+            "domainStrategy": "IPIfNonMatch",
             "balancers": [
                 {
                     "tag": "all-servers",
@@ -173,7 +174,8 @@ def build_config(outbounds):
                 }
             ],
             "rules": [
-                {"type": "field", "network": "tcp,udp", "balancerTag": "all-servers"}
+                {"type": "field", "ip": ["geoip:private"], "outboundTag": "direct"},
+                {"type": "field", "network": "tcp,udp", "balancerTag": "all-servers"},
             ],
         },
     }
@@ -220,7 +222,7 @@ def main():
         print("no valid vless links parsed, aborting", file=sys.stderr)
         sys.exit(1)
     config = build_config(outbounds)
-    file_content = HEADER + json.dumps(config, ensure_ascii=False, indent=2)
+    file_content = HEADER + json.dumps([config], ensure_ascii=False, indent=2)
     push_to_gitverse(file_content)
 
 

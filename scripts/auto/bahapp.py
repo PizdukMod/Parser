@@ -19,6 +19,9 @@ REMARKS = "😍@PizMod🏴PizdukVPN👀Авто😎выбор"
 PROBE_URL = "https://www.gstatic.com/generate_204"
 PROBE_INTERVAL = "1m"
 
+HEADER = ""
+
+
 TOKEN = os.environ["GITVERSE_TOKEN"]
 
 
@@ -84,6 +87,9 @@ def parse_vless(link, used_tags):
             },
         }
 
+        if outbound["streamSettings"]["network"] == "raw":
+            outbound["streamSettings"]["network"] = "tcp"
+
         network = outbound["streamSettings"]["network"]
         security = outbound["streamSettings"]["security"]
 
@@ -123,11 +129,13 @@ def parse_vless(link, used_tags):
 
 
 def build_config(outbounds):
-    tags = [o["tag"] for o in outbounds]
+    all_tags = [o["tag"] for o in outbounds]
+    # серверы "только для Телеграма" не берём в автовыбор
+    tags = [t for t in all_tags if "telegram-only" not in t] or all_tags
     return {
         "remarks": REMARKS,
         "log": {"loglevel": "warning"},
-"dns": {"servers": ["1.1.1.1", "8.8.8.8"]},
+        "dns": {"servers": ["1.1.1.1", "8.8.8.8"]},
         "observatory": {
             "subjectSelector": tags,
             "probeUrl": PROBE_URL,
@@ -166,9 +174,9 @@ def build_config(outbounds):
                 }
             ],
             "rules": [
-    {"type": "field", "ip": ["geoip:private"], "outboundTag": "direct"},
-    {"type": "field", "network": "tcp,udp", "balancerTag": "all-servers"},
-],
+                {"type": "field", "ip": ["geoip:private"], "outboundTag": "direct"},
+                {"type": "field", "network": "tcp,udp", "balancerTag": "all-servers"},
+            ],
         },
     }
 
@@ -214,7 +222,7 @@ def main():
         print("no valid vless links parsed, aborting", file=sys.stderr)
         sys.exit(1)
     config = build_config(outbounds)
-    file_content = json.dumps([config], ensure_ascii=False, indent=2)
+    file_content = HEADER + json.dumps([config], ensure_ascii=False, indent=2)
     push_to_gitverse(file_content)
 
 

@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import sys
+import uuid
 from urllib.parse import parse_qs, unquote
 
 import requests
@@ -11,15 +12,21 @@ SUB_URL = "https://gitverse.ru/api/repos/Pizduk/PizdukVPN/raw/branch/master/WlSu
 GITVERSE_API = "https://api.gitverse.ru"
 OWNER = "Pizduk"
 REPO = "PizdukVPN"
-OUTPUT_PATH = "WaHapp"
+OUTPUT_PATH = "WLAutoPiz.txt"
 BRANCH = "master"
 
-REMARKS = "🐼@PizMod🐑PizdukVPN🤍Авто🐇Выбор🐻‍❄️"
+REMARKS = "🏳PizdukVPN🤍Авто🐇Выбор🐻‍❄️"
 
 PROBE_URL = "https://www.gstatic.com/generate_204"
 PROBE_INTERVAL = "1m"
 
-HEADER = ""
+HEADER = (
+    "#profile-title: PizdukVPN Автовыбор🤍\n"
+    "#profile-update-interval: 6\n"
+    "#announce: base64: 8J+YjtCi0LXQu9C10LPRgNCw0Lwg0LrQsNC90LDQuzogQFBpek1vZPCfmI4K4oC877iP0JXRgdC70Lgg0L3QtSDQv9C+0YDRgtC40YDRg9C10YLRgdGPINC60L7QvdGE0LjQsyDQuNGB0L/QvtC70YzQt9GD0LnRgtC1INCQ0JvQrNCi0JXQoNCd0JDQotCY0JLQndCj0K4g0YHRgdGL0LvQutGDIOKAvO+4jw==\n"
+    "#profile-web-page-url: https://t.me/PizMod\n"
+    "#support-url: https://t.me/Harachok\n"
+)
 
 
 TOKEN = os.environ["GITVERSE_TOKEN"]
@@ -53,6 +60,12 @@ def parse_vless(link, used_tags):
         body = link[len("vless://"):]
         left, _, frag = body.partition("#")
         userinfo, _, hostpart = left.partition("@")
+        userinfo = unquote(userinfo)
+        try:
+            uuid.UUID(userinfo)
+        except ValueError:
+            print("skip invalid uuid: " + frag, file=sys.stderr)
+            return None
         hostname, _, query = hostpart.partition("?")
 
         host, _, port_raw = hostname.rpartition(":")

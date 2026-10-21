@@ -61,12 +61,13 @@ def parse_vless(link, used_tags):
         left, _, frag = body.partition("#")
         userinfo, _, hostpart = left.partition("@")
         userinfo = unquote(userinfo)
-try:
-    uuid.UUID(userinfo)
-except ValueError:
-    print("skip invalid uuid: " + frag, file=sys.stderr)
-    return None
+        try:
+            uuid.UUID(userinfo)
+        except ValueError:
+            print("skip invalid uuid: " + frag, file=sys.stderr)
+            return None
         hostname, _, query = hostpart.partition("?")
+
         host, _, port_raw = hostname.rpartition(":")
         port = int(port_raw.split("/", 1)[0].strip())
 

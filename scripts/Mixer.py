@@ -25,25 +25,15 @@ SOURCES = [
     # --- из первой версии ---
     "https://freevpnhappcluchi.duckdns.org/sub/3qjxa0px9dqfd01q",
     "https://gitverse.ru/api/repos/soulcoil/Haven/raw/branch/master/Haven",
-    "https://botpost.vpnruss1.ru/sub/ba63f7f9-84c0-49ac-b0ff-87acee16484a",
-    "https://raw.githubusercontent.com/gooseteam-hackers/freevpn-cracks/refs/heads/main/subscription_auto.txt",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
     "https://raw.githubusercontent.com/ImSketch1337/vless-/refs/heads/main/BLWLservers.txt",
     # --- добавлено из второй версии ---
     "https://gidroksi.fun/black-list",
-    "https://sub.clearq.workers.dev/sub/clearqsite?id=Colab_VPN",
-    "https://gist.githubusercontent.com/flexter151-rgb/de6108267d7a17ce217961b2b2e3accc/raw/b677202742aab271b311af8b808f6860dfc8fe99/gistfile1.txt",
-    "https://github.com/Remiuc0ff/ya-nikogo-ne-ubival/raw/refs/heads/Remiuc0ff-patch-1/Owner-@remiuc",
     # Белые списки:
     "https://gitverse.ru/api/repos/SlavaKat/FreeProxyNova/raw/branch/master/🆓ProxyNova ❯ 🗽🕊✊ Ручной выбор Обход БС (Тест)",
     "https://gitverse.ru/api/repos/gidro/white/raw/branch/master/subscription.txt",
-    "https://raw.githubusercontent.com/ksenkovsolo/HardVPN-bypass-WhiteLists-/refs/heads/main/vpn-lte/best_keys.txt",
-    "https://warp-gen.cyb-portal.org/CP-032",
-    "https://raw.githubusercontent.com/flaafix/AetrisVPN-white-list-lite/refs/heads/main/AetrisVPN.txt",
-    "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/WHITE_LIST.txt",
-    "https://gitverse.ru/api/repos/Benss/Vless/raw/branch/master/new_file",
+    "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLWL_MIX.txt",
     "https://raw.githubusercontent.com/linspisokobhod/linspisokobhod.github.io/refs/heads/main/sub/LTE.txt",
-    "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
 ]
 
 

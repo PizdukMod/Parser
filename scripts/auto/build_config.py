@@ -27,6 +27,7 @@ HEADER = (
     "#announce: base64: 8J+YjtCi0LXQu9C10LPRgNCw0Lwg0LrQsNC90LDQuzogQFBpek1vZPCfmI4K4oC877iP0JXRgdC70Lgg0L3QtSDQv9C+0YDRgtC40YDRg9C10YLRgdGPINC60L7QvdGE0LjQsyDQuNGB0L/QvtC70YzQt9GD0LnRgtC1INCQ0JvQrNCi0JXQoNCd0JDQotCY0JLQndCj0K4g0YHRgdGL0LvQutGDIOKAvO+4jw==\n"
 )
 
+
 TOKEN = os.environ["GITVERSE_TOKEN"]
 
 
@@ -92,6 +93,9 @@ def parse_vless(link, used_tags):
             },
         }
 
+        if outbound["streamSettings"]["network"] == "raw":
+            outbound["streamSettings"]["network"] = "tcp"
+
         network = outbound["streamSettings"]["network"]
         security = outbound["streamSettings"]["security"]
 
@@ -131,7 +135,9 @@ def parse_vless(link, used_tags):
 
 
 def build_config(outbounds):
-    tags = [o["tag"] for o in outbounds]
+    all_tags = [o["tag"] for o in outbounds]
+    # серверы "только для Телеграма" не берём в автовыбор
+    tags = [t for t in all_tags if "telegram-only" not in t] or all_tags
     return {
         "remarks": REMARKS,
         "log": {"loglevel": "warning"},

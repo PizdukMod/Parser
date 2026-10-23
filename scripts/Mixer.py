@@ -48,7 +48,7 @@ PINNED_CONFIGS = [
     "#announce: base64: 8J+UpdCi0LXQu9C10LPRgNCw0Lwg0LrQsNC90LDQuzogQFBpem1vZPCfpboK8J+lsNCQ0LLRgtC+0L7QsdC90L7QstC70LXQvdC40LUg0YDQsNC3INCyIDYg0YfQsNGB0L7QsvCfmLE=",
     "#profile-web-page-url: https://t.me/PizMod",
     "#support-url: https://t.me/Harachok",
-    "#profile-update-interval: 4",
+    "#profile-update-interval: 8",
     #типо пропуск ок,чисто для меня
 ]
 

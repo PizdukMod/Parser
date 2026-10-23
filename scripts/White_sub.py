@@ -30,10 +30,12 @@ SOURCES = [
     "https://raw.githubusercontent.com/gazeta404/rain_vpn_bs/main/bs.txt",
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-white-list-lite/refs/heads/main/AetrisVPN.txt",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/WHITE_LIST.txt",
+    "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/wl",
     "https://gitverse.ru/api/repos/Benss/Vless/raw/branch/master/new_file",
     "https://raw.githubusercontent.com/linspisokobhod/linspisokobhod.github.io/refs/heads/main/sub/LTE.txt",
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
     "https://bobrrvpn.neocities.org/whitelist.txt",
+    "https://raw.githubusercontent.com/wlunlocker/vpn-configs/main/whitelist_all.txt",
 ]
 
 
@@ -61,8 +63,6 @@ PINNED_CONFIGS = [
     "#profile-update-interval: 6",
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=qq&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%28telegram-only%29",
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@78.159.250.214:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=firefox&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=00000000#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%D1%8D%D1%82%D0%BE%202%20%28telegram-only%29",
-    "vless://c720cb74-4c84-4fce-b8ae-637dbaa16199@185.141.227.223:443/?type=ws&encryption=none&flow=&host=z1q3pv4g78.rucdncomp.pro&path=%2Fuseraction%2Fevents%2Fb892639b7195%2F&security=tls&sni=z1q3pv4g78.rucdncomp.pro&fp=safari#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20",
-    "vless://c720cb74-4c84-4fce-b8ae-637dbaa16199@185.141.227.223:443/?type=ws&encryption=none&flow=&host=z1q3pv4g78.rucdncomp.pro&path=%2Fuseraction%2Fevents%2Fb892639b7195%2F&security=tls&sni=z1q3pv4g78.rucdncomp.pro&fp=ios#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
     # "vless://uuid@host:port?...#Моё имя",
 ]
 

@@ -31,6 +31,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-white-list-lite/refs/heads/main/AetrisVPN.txt",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/WHITE_LIST.txt",
     "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/wl",
+    "https://hub.mos.ru/kfwl/auto/raw/main/wl",
     "https://gitverse.ru/api/repos/Benss/Vless/raw/branch/master/new_file",
     "https://raw.githubusercontent.com/linspisokobhod/linspisokobhod.github.io/refs/heads/main/sub/LTE.txt",
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
@@ -74,20 +75,31 @@ MAX_PER_SOURCE = 50
 MIN_PER_SOURCE = 1
 
 # --- распределение по странам ---
-MAX_PER_COUNTRY = 15       # максимум конфигов на одну страну в итоговом файле (0 = без ограничения)
+MAX_PER_COUNTRY = 15       # максимум ПРЯМЫХ конфигов на одну страну в итоговом файле (0 = без ограничения)
 MIN_COUNTRIES_KEEP_ALL = 0 # если стран меньше N — лимит по стране не применяется (0 = выключено)
 
+# --- КАСКАДЫ (вход в РФ -> выход в другой стране) ---
+# Каскад определяется так: страна IP самого сервера (вход) != страна реального выходного IP.
+# Такие конфиги проходят отдельный (более мягкий) лимит по пингу, отдельные лимиты по количеству,
+# НЕ удаляются как дубли по выходному IP (у каскадов разные входы часто выходят через один IP)
+# и подписываются в конце: "🇩🇪 Германия — Франкфурт (вход 🇷🇺 Россия)".
+KEEP_CASCADES = True
+CASCADE_ENTRY_COUNTRIES = ("RU",)   # входом каскада считается сервер в этих странах; () = любая страна
+CASCADE_LABEL = "(вход {flag} {country})"   # {flag} {country} {code}
+MAX_PING_CASCADE_MS = 350           # у каскадов два прыжка — пинг естественно выше
+MAX_CASCADES_PER_SOURCE = 30        # лучших каскадов с одного источника
+MAX_CASCADES_PER_COUNTRY = 10       # каскадов на одну страну ВЫХОДА в итоговом файле (0 = без ограничения)
+
 # --- удаление дубликатов ---
-DEDUPE_BY_EXIT_IP = True   # дубли по реальному выходному IP (из проверки через прокси).
-                           # Для каскадов РФ→мир разные входы могут выходить через один IP —
-                           # если конфигов остаётся слишком мало, поставь False
+DEDUPE_BY_EXIT_IP = True   # дубли ПРЯМЫХ конфигов по реальному выходному IP (из проверки через прокси).
+                           # Каскады под это правило не попадают.
 
 # --- РЕЖИМ БЕЛЫХ СПИСКОВ (БС) ---
 WHITELIST_ONLY = True        # True = оставлять только конфиги белых списков
 WL_TRUST_NAME = True         # считать БС-конфигом, если в названии есть "БС" / "белые списки" / "whitelist"
 WL_ACCEPT_RU_IP = True       # считать БС-конфигом и тот, чей сервер по geo находится в РФ (каскады РФ→мир, SNI может быть любым)
 WL_ONLY_RU_SERVERS = False   # True = оставлять только конфиги, у которых РЕАЛЬНЫЙ ВЫХОДНОЙ IP в РФ.
-                             # Для каскадов РФ→мир выход не в РФ, поэтому обычно держи False
+                             # Это выбросит все каскады (у них выход не в РФ), поэтому держи False
 
 # Конфиг считается БС, если его SNI / Host / адрес сервера входит в один из этих доменов
 # (включая поддомены). Список белых списков меняется — дополняй под себя.
@@ -120,12 +132,18 @@ WL_NAME_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+# --- СКОРОСТЬ ПРОВЕРКИ ---
 CONNECT_TIMEOUT = 1.5     # для фолбэк-протоколов (hysteria2/tuic)
 FETCH_TIMEOUT = 15.0
 
-CONCURRENCY = 15          # одновременных xray-процессов (осторожно с RAM раннера)
-XRAY_STARTUP_WAIT = 1.2   # сек, дать xray время подняться
-XRAY_TEST_TIMEOUT = 8.0   # сек на сессию через прокси (тест-запрос + запрос гео)
+TCP_PRECHECK = True             # дешёвая TCP-проверка порта ДО запуска xray: мёртвые серверы отсеиваются за ~секунду
+TCP_PRECHECK_TIMEOUT = 2.5      # сек на TCP-подключение
+TCP_PRECHECK_CONCURRENCY = 300  # TCP-проверок одновременно (это просто сокеты, RAM почти не тратят)
+
+CONCURRENCY = 40          # одновременных xray-процессов (каждый ~20-30 МБ; если раннер падает по RAM — снизь до 25)
+XRAY_STARTUP_MAX = 3.0    # макс. сек ожидания старта xray (порт опрашивается каждые 50 мс, обычно хватает ~0.2 сек)
+XRAY_TEST_TIMEOUT = 6.0   # сек на тест-запрос через прокси
+GEO_TIMEOUT = 3.5         # сек на каждый запрос гео через прокси
 XRAY_BINARY = "xray"      # должен быть в PATH (см. workflow)
 TEST_URL = "https://cp.cloudflare.com/generate_204"
 
@@ -135,6 +153,10 @@ GEO_URLS = (
     "http://ip-api.com/json/?fields=status,countryCode,city,query",
 )
 EXIT_GEO = {}  # config -> (country_code, geo_name, exit_ip)
+
+# --- гео ВХОДА (IP самого сервера), пакетно через ip-api.com ---
+GEO_BATCH_INTERVAL = 4.3   # сек между пакетными запросами (лимит ip-api: 15 в минуту)
+IP_CC = {}                 # ip сервера -> код страны ("" если не определилась)
 
 # --- РЕЗЕРВНЫЕ проверки гео для конфигов, которые не удалось переименовать ---
 # Проверяется IP сервера. Сначала русские сервисы, потом западные.
@@ -150,7 +172,7 @@ GEO_FALLBACK_WEST = (
 )
 GEO_FALLBACK_TIMEOUT = 6.0
 
-MAX_PING_MS = 120         # жёсткая отсечка — медленнее не берём вообще
+MAX_PING_MS = 120         # жёсткая отсечка для ПРЯМЫХ — медленнее не берём вообще
 GOOD_PING_MS = 50         # ориентир "хорошего" пинга, используется только в логах
 
 BASE_LOCAL_PORT = 21000
@@ -468,45 +490,89 @@ def print_sni_stats(configs):
         print(f"      {count:>4}  {sni:<40} {mark}")
 
 
+# ============================================================
+# ГЕО ВХОДА (IP сервера): пакетно, с кэшем и соблюдением лимита ip-api
+# ============================================================
+
 _geo_lock = asyncio.Lock()
+_last_batch = 0.0
+
+
+async def ensure_ip_cc(session, hosts):
+    """Заполняет IP_CC для хостов. Уже известные IP повторно не запрашиваются."""
+    global _last_batch
+
+    hosts = [h for h in hosts if h]
+    await asyncio.gather(*(resolve_ip(h) for h in hosts))
+
+    ips = sorted({_dns_cache.get(h) for h in hosts if _dns_cache.get(h) and _dns_cache.get(h) not in IP_CC})
+
+    for i in range(0, len(ips), 100):
+        chunk = [ip for ip in ips[i:i + 100] if ip not in IP_CC]
+        if not chunk:
+            continue
+
+        async with _geo_lock:
+            for _ in range(3):
+                wait = GEO_BATCH_INTERVAL - (time.monotonic() - _last_batch)
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                _last_batch = time.monotonic()
+
+                try:
+                    timeout = aiohttp.ClientTimeout(total=15.0)
+                    async with session.post(
+                        "http://ip-api.com/batch?fields=query,countryCode",
+                        json=chunk, timeout=timeout,
+                    ) as response:
+                        if response.status == 200:
+                            for item in await response.json(content_type=None):
+                                if item.get("query"):
+                                    IP_CC[item["query"]] = (item.get("countryCode") or "").upper()
+                            for ip in chunk:
+                                IP_CC.setdefault(ip, "")
+                            break
+                        if response.status == 429:
+                            await asyncio.sleep(15)
+                            continue
+                        break
+                except Exception:
+                    break
 
 
 async def find_ru_hosts(session, hosts):
-    """Возвращает множество хостов, чей IP по geo находится в РФ (пакетный запрос к ip-api.com)."""
-    loop = asyncio.get_running_loop()
-    ip_of = {}
+    """Возвращает множество хостов, чей IP по geo находится в РФ."""
+    await ensure_ip_cc(session, hosts)
+    return {h for h in hosts if IP_CC.get(_dns_cache.get(h)) == "RU"}
 
-    async def resolve(host):
-        try:
-            infos = await loop.getaddrinfo(host, None, family=socket.AF_INET, type=socket.SOCK_STREAM)
-            ip_of[host] = infos[0][4][0]
-        except Exception:
-            pass
 
-    await asyncio.gather(*(resolve(h) for h in hosts))
+def entry_cc(config):
+    """Страна IP самого сервера (вход) или None."""
+    hp = get_host_port(config)
+    if not hp:
+        return None
+    ip = _dns_cache.get(hp[0])
+    if not ip:
+        return None
+    return IP_CC.get(ip) or None
 
-    ips = sorted(set(ip_of.values()))
-    ru_ips = set()
 
-    async with _geo_lock:  # лимит ip-api: 15 пакетных запросов в минуту
-        for i in range(0, len(ips), 100):
-            chunk = ips[i:i + 100]
-            try:
-                timeout = aiohttp.ClientTimeout(total=15.0)
-                async with session.post(
-                    "http://ip-api.com/batch?fields=query,countryCode",
-                    json=chunk, timeout=timeout,
-                ) as response:
-                    if response.status == 200:
-                        for item in await response.json(content_type=None):
-                            if item.get("countryCode") == "RU":
-                                ru_ips.add(item.get("query"))
-            except Exception:
-                pass
-            if i + 100 < len(ips):
-                await asyncio.sleep(4.5)
+def is_cascade(config):
+    """True, если вход (IP сервера) и реальный выход находятся в разных странах (и вход — из CASCADE_ENTRY_COUNTRIES)."""
+    if not KEEP_CASCADES:
+        return False
+    info = EXIT_GEO.get(config)
+    if not info or not info[0]:
+        return False
+    ent = entry_cc(config)
+    if not ent or ent.upper() == info[0].upper():
+        return False
+    return (not CASCADE_ENTRY_COUNTRIES) or ent.upper() in CASCADE_ENTRY_COUNTRIES
 
-    return {host for host, ip in ip_of.items() if ip in ru_ips}
+
+def cascade_suffix(config):
+    ent = entry_cc(config)
+    return CASCADE_LABEL.format(flag=get_country_flag(ent), country=get_country_name(ent), code=ent or "")
 
 
 def domain_in_whitelist(domain):
@@ -723,9 +789,10 @@ def init_port_pool(n):
 
 async def fetch_exit_geo(session):
     """Запрашивает гео через прокси-сессию. Возвращает (country_code, city, exit_ip) или None."""
+    timeout = aiohttp.ClientTimeout(total=GEO_TIMEOUT)
     for url in GEO_URLS:
         try:
-            async with session.get(url, ssl=False) as r:
+            async with session.get(url, ssl=False, timeout=timeout) as r:
                 if r.status != 200:
                     continue
                 d = await r.json(content_type=None)
@@ -739,13 +806,63 @@ async def fetch_exit_geo(session):
 
 
 # ============================================================
+# TCP-ПРЕДПРОВЕРКА (до запуска xray) И ОЖИДАНИЕ ПОРТА
+# ============================================================
+
+_tcp_sem = asyncio.Semaphore(TCP_PRECHECK_CONCURRENCY)
+_UDP_NET_RE = re.compile(r"(type|net)=(kcp|mkcp|quic)", re.IGNORECASE)
+
+
+async def tcp_check(host, port, timeout=None):
+    timeout = timeout or CONNECT_TIMEOUT
+    try:
+        start = time.monotonic()
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
+        latency_ms = (time.monotonic() - start) * 1000
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
+        return latency_ms
+    except Exception:
+        return None
+
+
+async def tcp_precheck(config):
+    """True, если порт сервера отвечает (или проверить нельзя — тогда решает xray)."""
+    if _UDP_NET_RE.search(config):
+        return True
+    hp = get_host_port(config)
+    if not hp:
+        return True
+    async with _tcp_sem:
+        return await tcp_check(hp[0], hp[1], TCP_PRECHECK_TIMEOUT) is not None
+
+
+async def wait_port(proc, port, timeout):
+    """Ждёт, пока локальный socks-порт xray начнёт принимать соединения. False — xray упал или не поднялся."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if proc.returncode is not None:
+            return False
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.close()
+            return True
+        except OSError:
+            await asyncio.sleep(0.05)
+    return False
+
+
+# ============================================================
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY
 # ============================================================
 
 async def xray_real_check(line):
     outbound = build_outbound(line)
     if not outbound:
-        return False
+        return None
 
     port = await _port_pool.get()
     proc = None
@@ -773,10 +890,8 @@ async def xray_real_check(line):
             stderr=asyncio.subprocess.DEVNULL,
         )
 
-        await asyncio.sleep(XRAY_STARTUP_WAIT)
-
-        if proc.returncode is not None:
-            return None  # xray сразу упал — конфиг битый
+        if not await wait_port(proc, port, XRAY_STARTUP_MAX):
+            return None  # xray упал или не поднялся — конфиг битый
 
         connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
         timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
@@ -790,11 +905,13 @@ async def xray_real_check(line):
                     await resp.read()
                 latency_ms = (time.monotonic() - start) * 1000
 
-                # реальный выходной IP / страна / город — запрос идёт через прокси
-                geo = await fetch_exit_geo(session)
-                if geo:
-                    cc, city, exit_ip = geo
-                    EXIT_GEO[line] = (cc, make_geo_name(cc, city), exit_ip)
+                # гео запрашиваем только у тех, кто вообще может пройти по пингу (экономит время)
+                ping_cap = max(MAX_PING_MS, MAX_PING_CASCADE_MS if KEEP_CASCADES else 0)
+                if latency_ms <= ping_cap:
+                    geo = await fetch_exit_geo(session)
+                    if geo:
+                        cc, city, exit_ip = geo
+                        EXIT_GEO[line] = (cc, make_geo_name(cc, city), exit_ip)
             return latency_ms
         except Exception:
             return None
@@ -805,13 +922,13 @@ async def xray_real_check(line):
     finally:
         if proc is not None and proc.returncode is None:
             try:
-                proc.terminate()
-                await asyncio.wait_for(proc.wait(), timeout=3)
+                proc.kill()
             except Exception:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
+                pass
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=2)
+            except Exception:
+                pass
         if tmp_path:
             try:
                 os.remove(tmp_path)
@@ -823,21 +940,6 @@ async def xray_real_check(line):
 # ============================================================
 # ФОЛБЭК TCP-ПРОВЕРКА (hysteria2 / tuic / ssr)
 # ============================================================
-
-async def tcp_check(host, port):
-    try:
-        start = time.monotonic()
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=CONNECT_TIMEOUT)
-        latency_ms = (time.monotonic() - start) * 1000
-        writer.close()
-        try:
-            await writer.wait_closed()
-        except Exception:
-            pass
-        return latency_ms
-    except Exception:
-        return None
-
 
 async def fallback_check(line):
     hp = get_host_port(line)
@@ -914,7 +1016,7 @@ def parse_geo_json(data):
 
 
 # ============================================================
-# DNS (асинхронно, с кэшем) — нужен для фолбэк-гео и удаления дублей по IP
+# DNS (асинхронно, с кэшем) — нужен для гео входа, фолбэк-гео и удаления дублей по IP
 # ============================================================
 
 _dns_cache = {}
@@ -1063,13 +1165,17 @@ async def process_source(session, url, semaphore):
         return []
 
     async def worker(config):
-        async with semaphore:
-            try:
+        try:
+            # дешёвая TCP-проверка: мёртвые серверы не добираются до xray
+            if TCP_PRECHECK and config.startswith(XRAY_SUPPORTED):
+                if not await tcp_precheck(config):
+                    return None
+            async with semaphore:
                 latency = await check_config(config)
                 if latency is not None:
                     return (config, latency)
-            except Exception:
-                pass
+        except Exception:
+            pass
         return None
 
     tasks = [asyncio.create_task(worker(c)) for c in configs]
@@ -1090,29 +1196,47 @@ async def process_source(session, url, semaphore):
             if not task.done():
                 task.cancel()
 
-    # отбрасываем слишком медленные
-    fast_enough = [c for c in working if c[1] <= MAX_PING_MS]
+    # узнаём страну входа (IP сервера) у рабочих — по ней отличаем каскады от прямых
+    if KEEP_CASCADES and working:
+        hosts = set()
+        for c, _ in working:
+            hp = get_host_port(c)
+            if hp:
+                hosts.add(hp[0])
+        await ensure_ip_cc(session, hosts)
 
-    if len(fast_enough) < MIN_PER_SOURCE and len(working) > len(fast_enough):
+    direct = [w for w in working if not is_cascade(w[0])]
+    cascades = [w for w in working if is_cascade(w[0])]
+
+    # --- прямые: жёсткая отсечка по пингу ---
+    fast_enough = [c for c in direct if c[1] <= MAX_PING_MS]
+
+    if len(fast_enough) < MIN_PER_SOURCE and len(direct) > len(fast_enough):
         print(f"    [!] Быстрых (<{MAX_PING_MS} мс) меньше {MIN_PER_SOURCE} — добираем из более медленных")
-        working.sort(key=lambda c: c[1])
-        fast_enough = working
+        direct.sort(key=lambda c: c[1])
+        fast_enough = direct
 
     fast_enough.sort(key=lambda c: c[1])
     best = fast_enough[:MAX_PER_SOURCE]
 
-    print(f"    [✓] рабочих всего: {len(working)}, отобрано лучших по пингу: {len(best)}")
+    # --- каскады: мягкая отсечка по пингу, отдельный лимит ---
+    casc_ok = sorted((c for c in cascades if c[1] <= MAX_PING_CASCADE_MS), key=lambda c: c[1])
+    best_casc = casc_ok[:MAX_CASCADES_PER_SOURCE]
 
-    if len(best) < MIN_PER_SOURCE:
+    print(f"    [✓] рабочих всего: {len(working)} (прямых {len(direct)}, каскадов {len(cascades)}), "
+          f"отобрано: прямых {len(best)}, каскадов {len(best_casc)}")
+
+    if len(best) + len(best_casc) < MIN_PER_SOURCE:
         print(f"    [!] Меньше {MIN_PER_SOURCE}")
 
-    return best  # список (config, latency)
+    return best + best_casc  # список (config, latency)
 
 
 # ============================================================
 # УДАЛЕНИЕ ДУБЛЕЙ ПО РЕАЛЬНОМУ IP:ПОРТ И ПО ВЫХОДНОМУ IP
 # Разные домены/названия на один и тот же ip:порт — это один сервер.
-# Конфиги с одинаковым выходным IP — тоже дубли (если DEDUPE_BY_EXIT_IP).
+# Прямые конфиги с одинаковым выходным IP — тоже дубли (если DEDUPE_BY_EXIT_IP).
+# У каскадов выходной IP не сравнивается: разные входы с одним выходом — разные конфиги.
 # Из группы остаётся самый быстрый.
 # ============================================================
 
@@ -1131,7 +1255,7 @@ async def dedupe_by_ip(items, taken=None):
         if hp:
             ip = _dns_cache.get(hp[0]) or hp[0]
             keys.append((ip, hp[1]))
-        if DEDUPE_BY_EXIT_IP:
+        if DEDUPE_BY_EXIT_IP and not is_cascade(config):
             info = EXIT_GEO.get(config)
             if info and info[2]:
                 keys.append(("exit", info[2]))
@@ -1149,33 +1273,36 @@ async def dedupe_by_ip(items, taken=None):
 def distribute_by_country(entries):
     """
     entries: список (config, latency, country_code, geo_name)
-    Возвращает (kept, stats): лимит MAX_PER_COUNTRY на страну, лучшие по пингу первыми.
+    Возвращает (kept, stats). Прямые и каскады считаются раздельно:
+    MAX_PER_COUNTRY для прямых, MAX_CASCADES_PER_COUNTRY для каскадов. Лучшие по пингу первыми.
     """
-    by_country = defaultdict(list)
+    by_group = defaultdict(list)
     for entry in entries:
-        _, _, country_code, _ = entry
-        key = country_code or "??"
-        by_country[key].append(entry)
+        config, _, country_code, _ = entry
+        by_group[(country_code or "??", is_cascade(config))].append(entry)
 
-    apply_limit = MAX_PER_COUNTRY > 0
-    if MIN_COUNTRIES_KEEP_ALL and len(by_country) < MIN_COUNTRIES_KEEP_ALL:
-        apply_limit = False
+    n_countries = len({k[0] for k in by_group})
 
     kept = []
     stats = {}
 
-    for country_code in sorted(by_country, key=lambda c: len(by_country[c]), reverse=True):
-        group = by_country[country_code]
+    for key in sorted(by_group, key=lambda k: len(by_group[k]), reverse=True):
+        country_code, cascade = key
+        group = by_group[key]
         group.sort(key=lambda e: e[1])  # по латентности, лучшие первые
 
-        selected = group[:MAX_PER_COUNTRY] if apply_limit else group
+        limit = MAX_CASCADES_PER_COUNTRY if cascade else MAX_PER_COUNTRY
+        apply_limit = limit > 0
+        if not cascade and MIN_COUNTRIES_KEEP_ALL and n_countries < MIN_COUNTRIES_KEEP_ALL:
+            apply_limit = False
+
+        selected = group[:limit] if apply_limit else group
         kept.extend(selected)
 
-        example_name = get_country_name(country_code) if country_code != "??" else "Неизвестно"
-        stats[country_code] = {
+        stats[key] = {
             "total": len(group),
             "kept": len(selected),
-            "name": example_name,
+            "name": get_country_name(country_code) if country_code != "??" else "Неизвестно",
         }
 
     return kept, stats
@@ -1185,15 +1312,16 @@ def print_country_distribution(stats):
     print()
     print("[i] Распределение по странам:")
     total_kept = 0
-    for country_code, info in sorted(stats.items(), key=lambda kv: kv[1]["kept"], reverse=True):
+    for (country_code, cascade), info in sorted(stats.items(), key=lambda kv: kv[1]["kept"], reverse=True):
         flag = get_country_flag(country_code) if country_code != "??" else "🌐"
         total_kept += info["kept"]
+        name = info["name"] + (" (каскады)" if cascade else "")
         if info["kept"] < info["total"]:
-            print(f"    {flag} {info['name']:<20} {info['kept']:>3} / {info['total']:>3} (обрезано лимитом)")
+            print(f"    {flag} {name:<28} {info['kept']:>3} / {info['total']:>3} (обрезано лимитом)")
         else:
-            print(f"    {flag} {info['name']:<20} {info['kept']:>3}")
+            print(f"    {flag} {name:<28} {info['kept']:>3}")
     print(f"    {'—' * 40}")
-    print(f"    Итого стран: {len(stats)}, итого конфигов: {total_kept}")
+    print(f"    Итого групп: {len(stats)}, итого конфигов: {total_kept}")
 
 
 # ============================================================
@@ -1289,7 +1417,8 @@ async def main():
 
             geo_entries.append((config, latency, country_code, geo_name))
 
-            print(f"    [{index}/{len(all_entries)}] {geo_name or '🌐 Неизвестно (имя не менял)'}"
+            tag = f" {cascade_suffix(config)}" if is_cascade(config) else ""
+            print(f"    [{index}/{len(all_entries)}] {geo_name or '🌐 Неизвестно (имя не менял)'}{tag}"
                   f"  <- {source if geo_name else 'нигде не определилась'}")
 
     if WHITELIST_ONLY and WL_ONLY_RU_SERVERS:
@@ -1297,15 +1426,19 @@ async def main():
         geo_entries = [e for e in geo_entries if e[2] == "RU"]
         print(f"[i] Только выход в РФ: {len(geo_entries)} из {before}")
 
-    # --- распределение по странам с ограничением MAX_PER_COUNTRY ---
+    # --- распределение по странам с ограничениями (прямые и каскады раздельно) ---
     kept_entries, country_stats = distribute_by_country(geo_entries)
     print_country_distribution(country_stats)
 
     # переименовываем конфиги согласно гео (после отбора, чтобы не тратить время зря)
     renamed = []
+    cascade_count = 0
     for config, latency, country_code, geo_name in kept_entries:
-        renamed_config = rename_config(config, geo_name) if geo_name else config
-        renamed.append(renamed_config)
+        name = geo_name
+        if name and is_cascade(config):
+            name = f"{name} {cascade_suffix(config)}"
+            cascade_count += 1
+        renamed.append(rename_config(config, name) if name else config)
 
     # закреплённые конфиги — без проверки, всегда в начале списка (кроме чёрного списка)
     if pinned:
@@ -1325,7 +1458,7 @@ async def main():
 
     print()
     print("[✓] Готово!")
-    print(f"[✓] Сохранено: {len(final_list)} (из них закреплённых: {len(pinned)})")
+    print(f"[✓] Сохранено: {len(final_list)} (закреплённых: {len(pinned)}, каскадов: {cascade_count})")
     print(f"[✓] Файл: {OUTPUT_FILE}")
 
 

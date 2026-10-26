@@ -28,7 +28,6 @@ SOURCES = [
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
     "https://raw.githubusercontent.com/gazeta404/rain_vpn_sub/main/subscribe.txt",
     "https://bobrrvpn.neocities.org/blacklist.txt",
-    "https://github.com/Remiuc0ff/vpn-hiddifycode/raw/refs/heads/main/allhiddifyvpn",
 ]
 
 

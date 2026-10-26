@@ -31,8 +31,6 @@ SOURCES = [
     "https://gidroksi.fun/black-list",
     # Белые списки:
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLWL_MIX.txt",
-    "https://raw.githubusercontent.com/linspisokobhod/linspisokobhod.github.io/refs/heads/main/sub/LTE.txt",
-    "https://raw.githubusercontent.com/gazeta404/rain_vpn_bs/main/bs.txt",
 ]
 
 

@@ -27,7 +27,6 @@ SOURCES = [
     "https://freevpnhappcluchi.duckdns.org/sub/lzjrpfi55soz18q9",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
     "https://raw.githubusercontent.com/gazeta404/rain_vpn_sub/main/subscribe.txt",
-    "https://bobrrvpn.neocities.org/blacklist.txt",
 ]
 
 

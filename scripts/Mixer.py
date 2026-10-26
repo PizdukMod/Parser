@@ -23,17 +23,16 @@ from collections import defaultdict
 
 SOURCES = [
     # --- из первой версии ---
-    "https://freevpnhappcluchi.duckdns.org/sub/3qjxa0px9dqfd01q",
+    "https://freevpnhappcluchi.duckdns.org/sub/lzjrpfi55soz18q9",
     "https://gitverse.ru/api/repos/soulcoil/Haven/raw/branch/master/Haven",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
-    "https://raw.githubusercontent.com/ImSketch1337/vless-/refs/heads/main/BLWLservers.txt",
+    "https://raw.githubusercontent.com/gazeta404/rain_vpn_sub/main/subscribe.txt",
     # --- добавлено из второй версии ---
     "https://gidroksi.fun/black-list",
     # Белые списки:
-    "https://gitverse.ru/api/repos/SlavaKat/FreeProxyNova/raw/branch/master/🆓ProxyNova ❯ 🗽🕊✊ Ручной выбор Обход БС (Тест)",
-    "https://gitverse.ru/api/repos/gidro/white/raw/branch/master/subscription.txt",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLWL_MIX.txt",
     "https://raw.githubusercontent.com/linspisokobhod/linspisokobhod.github.io/refs/heads/main/sub/LTE.txt",
+    "https://raw.githubusercontent.com/gazeta404/rain_vpn_bs/main/bs.txt",
 ]
 
 

@@ -27,7 +27,6 @@ SOURCES = [
     "https://freevpnhappcluchi.duckdns.org/sub/lzjrpfi55soz18q9",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
     "https://raw.githubusercontent.com/gazeta404/rain_vpn_sub/main/subscribe.txt",
-    "https://raw.githubusercontent.com/gooseteam-hackers/freevpn-cracks/refs/heads/main/subscription_auto.txt",
     "https://bobrrvpn.neocities.org/blacklist.txt",
     "https://github.com/Remiuc0ff/vpn-hiddifycode/raw/refs/heads/main/allhiddifyvpn",
 ]
@@ -39,7 +38,7 @@ SOURCES = [
 
 PINNED_CONFIGS = [
     "#profile-title: PizdukVPN ЧС🏴",
-    "#announce: base64: 8J+UpdCi0LXQu9C10LPRgNCw0Lwg0LrQsNC90LDQuzogQFBpem1vZPCfpboK8J+lsNCQ0LLRgtC+0L7QsdC90L7QstC70LXQvdC40LUg0YDQsNC3INCyIDYg0YfQsNGB0L7QsvCfmLE=",
+    "#announce: base64: 8J++lsNCQ0LLRgtC+0L7QsdC90L7QstC70LXQvdC40LUg0YDQsNC3INCyIDYg0YfQsNGB0L7QsvCfmLE=",
     "#profile-web-page-url: https://t.me/PizMod",
     "#support-url: https://t.me/Harachok",
     "#profile-update-interval: 6",
@@ -58,19 +57,9 @@ PINNED_CONFIGS = [
     "vless://2b9fc113-db27-4635-86d8-fa4556a5b7ba@191.217.214.50:443/?type=xhttp&encryption=none&flow=&path=%2Fstatic%2F&mode=auto&sni=nl.cachevault.net&fp=ios&security=reality&pbk=XTX6Yvtj5B4HENQbNCS0MH3jDqq5vj5gWlg2nilTviE&sid=8ba02790a1480848#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%F0%9F%A4%96",
     "vless://32daf25d-9ffa-4f43-b6a3-2ebc21014681@94.156.179.251:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=www.tradingview.com&fp=firefox&security=reality&pbk=MN2XIVlIusdWaGwyyrGZ7Ti3jzqjDlpMmc12WcrV1nU&sid=#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%F0%9F%A4%96",
     "vless://0af34045-3d5e-4abe-bc8a-16e356daa214@de.vmagnum.win:443/?type=xhttp&encryption=none&flow=&path=%2F&mode=stream-one&security=tls&sni=api-v3-0af34045.vmagnum.win&alpn=h2&fp=firefox#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1",
-    "vless://5a519754-a673-4462-83f6-5eb25d2af141@de12b.h1cloud.net:25172/?type=tcp&encryption=none&flow=&sni=www.cloudflare.com&fp=chrome&security=reality&pbk=Xr55Hig_JTeUluiGfSnma6zMHG2Uv5Xu30ZODGF5xGA&sid=f09ac427e1abd14b#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F",
-    "vless://6da2c981-8c77-4340-bda3-93399b7aea26@132.243.230.251:443/?type=xhttp&encryption=none&flow=&path=%2Fentry-xh&mode=auto&sni=www.kinopoisk.ru&fp=qq&security=reality&pbk=Uz1UbBDf84n7oNfFIhFvXbuFcj1nbNEroiKC_Ud4ajg&sid=b2f9bb426426e0e7#%F0%9F%87%A9%F0%9F%87%AA%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F",
-    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.18:443/?type=grpc&encryption=none&flow=&serviceName=node.v2.ObjectService&sni=rs1.univesalsrv.com&fp=chrome&security=reality&pbk=upIzyaSbVz2ZK6KfGtXmPl_-sCwn8XLDyFDH5CsL9iY&sid=ed0cd5cc2e26e6e7#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%E2%9A%A1",
     "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@150.40.126.19:443/?type=grpc&encryption=none&flow=&serviceName=media.v1.ObjectService&sni=rs2.univesalsrv.com&fp=firefox&security=reality&pbk=tL16MVY08r-7YDXb1_gxuBBWInpSFp97ZLJ_ax3R2iE&sid=1469af2040b7c323#%F0%9F%87%B7%F0%9F%87%B8%20%EA%A7%81%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F%20%EA%A7%82%20%F0%9F%8C%BF",
-    "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@rs1.univesalsrv.com:443/?type=grpc&encryption=none&flow=&serviceName=node.v2.ObjectService&sni=rs1.univesalsrv.com&fp=firefox&security=reality&pbk=upIzyaSbVz2ZK6KfGtXmPl_-sCwn8XLDyFDH5CsL9iY&sid=ed0cd5cc2e26e6e7#%F0%9F%87%B7%F0%9F%87%B8%20%D0%A1%D0%B5%D1%80%D0%B1%D0%B8%D1%8F",
-    "vless://12af3df8-2ffe-48fe-9b60-376f015ea4f8@51.161.72.153:37765/?type=grpc&encryption=none&flow=&serviceName=grpc_common1&sni=www.semiconductor.samsung.com&fp=firefox&security=reality&pbk=g-4UVtgbojoxQaglMCttyLme4xjtTqomqxdZaVsruQ4&sid=defda00d613c#%F0%9F%87%A8%F0%9F%87%A6%20%D0%9A%D0%B0%D0%BD%D0%B0%D0%B4%D0%B0%20%F0%9F%A4%96",
-    "vless://fe551942-d6e5-4361-ae5c-1f2e9077cd79@83.219.97.18:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=fi5.silalink.sbs&security=reality&pbk=32XFmS-ifqooBFY89KNP3ZrqgSBOd3vel9GlNinL6yw&sid=03#%F0%9F%87%AB%F0%9F%87%AE%20%D0%A4%D0%B8%D0%BD%D0%BB%D1%8F%D0%BD%D0%B4%D0%B8%D1%8F",
-    "vless://fe551942-d6e5-4361-ae5c-1f2e9077cd79@83.219.97.18:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=fi5.silalink.sbs&fp=safari&security=reality&pbk=32XFmS-ifqooBFY89KNP3ZrqgSBOd3vel9GlNinL6yw&sid=03#%F0%9F%87%AB%F0%9F%87%AE%20%D0%A4%D0%B8%D0%BD%D0%BB%D1%8F%D0%BD%D0%B4%D0%B8%D1%8F",
     "ss://YWVzLTI1Ni1nY206WlJwZ2FCZUd4dEVOSVhndmhwa1pCS3o5R25XUlMyZFljeDlPK2EyaXdOND0@202.50.253.72:19999#%F0%9F%87%AE%F0%9F%87%B9%20%D0%98%D1%82%D0%B0%D0%BB%D0%B8%D1%8F",
-    "vless://32daf25d-9ffa-4f43-b6a3-2ebc21014681@132.243.231.94:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=www.tradingview.com&fp=firefox&security=reality&pbk=MN2XIVlIusdWaGwyyrGZ7Ti3jzqjDlpMmc12WcrV1nU&sid=#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20%E2%9A%A1%F0%9F%A4%96",
     "vless://f8d52ece-fad4-478d-875d-df6eed3befa7@se-2.pythonsetupbib.online:61374/?type=xhttp&encryption=none&flow=&host=se-2.pythonsetupbib.online&path=%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-500%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22500000-1000000%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2220-40%22%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2010%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%223%22%0A%20%20%7D%0A%7D&sni=se-2.pythonsetupbib.online&fp=random&security=reality&pbk=QrNs0ew7snHqLfpVXS9RAhlRzgAzzGZK9fXmDcx9xHI&sid=#%F0%9F%87%B8%F0%9F%87%AA%20%E2%98%81%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20%F0%9F%8C%8C%20%E2%98%81",
-    "vless://5a519754-a673-4462-83f6-5eb25d2af141@se3.h1cloud.net:25387/?type=tcp&encryption=none&flow=&sni=www.cloudflare.com&fp=firefox&security=reality&pbk=_nrnGiJUdyeLv2afSwe6P4j02AMayY34WFMjUJp5Kwc&sid=9608a9c65d315d52#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F",
-    "vless://d1f0c6cb-0d8b-4f13-8104-b7c8e8c57110@188.225.77.254:8443/?type=grpc&encryption=none&flow=&serviceName=ozone&sni=io.ozone.ru&fp=firefox&security=reality&pbk=rJ-fFNYXh7WW9LuYe1N71fh7nAEe5i09Pi5ZDSDlH1s&sid=4951a2313524dd8f#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F",
     #пропуск (не удалять!) . - , получается хуйня такая
 ]
 

@@ -27,6 +27,7 @@ SOURCES = [
     "https://freevpnhappcluchi.duckdns.org/sub/lzjrpfi55soz18q9",
     "https://raw.githubusercontent.com/gazeta404/rain_vpn_sub/main/subscribe.txt",
     "https://raw.githubusercontent.com/ImSketch1337/vless-/refs/heads/main/BLWLservers.txt",
+    "https://mifa.world/free",
 ]
 
 

@@ -38,7 +38,7 @@ SOURCES = [
 
 PINNED_CONFIGS = [
     "#profile-title: PizdukVPN ЧС🏴",
-    "#announce: base64: 8J++lsNCQ0LLRgtC+0L7QsdC90L7QstC70LXQvdC40LUg0YDQsNC3INCyIDYg0YfQsNGB0L7QsvCfmLE=",
+    "#announce: base64: 8J+YjiDQotC10LvQtdCz0YDQsNC8INC60LDQvdCw0Ls6IEBQaXpNb2Twn5iNCvCfpbPQkNCy0YLQvtC+0LHQvdC+0LLQu9C10L3QuNC1INC60LDQttC00YvQtSA2INGH0LDRgdC+0LLwn6Sv",
     "#profile-web-page-url: https://t.me/PizMod",
     "#support-url: https://t.me/Harachok",
     "#profile-update-interval: 6",

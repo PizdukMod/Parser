@@ -1,4 +1,4 @@
-name: WaHapp Updater
+name: Whapp.yml
 
 on:
   #schedule:

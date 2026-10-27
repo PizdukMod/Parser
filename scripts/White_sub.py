@@ -36,6 +36,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/linspisokobhod/linspisokobhod.github.io/refs/heads/main/sub/LTE.txt",
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
     "https://bobrrvpn.neocities.org/whitelist.txt",
+    "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/whitelist_vpn.txt",
     "https://raw.githubusercontent.com/wlunlocker/vpn-configs/main/whitelist_all.txt",
 ]
 

@@ -147,32 +147,22 @@ jobs:
   trigger-others:
     needs: update
     runs-on: ubuntu-latest
-
     steps:
-      - name: Trigger BL and bahapp on GitVerse
+      - name: Trigger BL and bahapp
         env:
-          GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -e
-          FIRST=1
           for wf in BL.yml bahapp.yml; do
-            if [ "${FIRST}" -eq 0 ]; then
-              echo "[i] Жду 10 секунд перед запуском $wf"
-              sleep 10
-            fi
-            FIRST=0
-
             echo "[i] Запускаю $wf"
             CODE=$(curl -s -o resp.txt -w "%{http_code}" -X POST \
-              "https://api.gitverse.ru/repos/Pizduk/Pars/actions/workflows/${wf}/dispatches?branch=master" \
-              -H "Authorization: Bearer ${GITVERSE_TOKEN}" \
-              -H "Accept: application/vnd.gitverse.object+json;version=1" \
-              -H "Content-Type: application/json" \
-              -d '{}')
+              "https://api.github.com/repos/PizdukMod/Parser/actions/workflows/${wf}/dispatches" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -d '{"ref":"master"}')
             if [ "${CODE}" != "204" ]; then
-              echo "[x] $wf: HTTP ${CODE}"
-              cat resp.txt
-              exit 1
+              echo "[x] $wf: HTTP ${CODE}"; cat resp.txt; exit 1
             fi
             echo "[+] $wf запущен"
+            sleep 10
           done

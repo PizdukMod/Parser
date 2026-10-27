@@ -100,7 +100,7 @@ PINNED_CONFIGS = [
     "vless://047466dd-05aa-4331-abf7-322c5aaecf97@ch.viralforge.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ch.viralforge.ru&fp=firefox&security=reality&pbk=HLKQ0JvyaZ16JNdl0pbEPkiVRYJDiZNzGz9prDMiw2s&sid=a1b2c3d4b5#%F0%9F%87%A8%F0%9F%87%AD%20%E2%9C%AF%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%F0%9F%8F%94%20%E2%9C%AF",
     "vless://46c16b68-2553-4e5e-8176-f63d6bf6ec0c@vena.solomon-planet.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=vena.solomon-planet.ru&fp=firefox&security=reality&pbk=rvDa0xNkcJYEIJ-1Ncrq54BUjjwm99C_8Vv_-He6j1U&sid=#%F0%9F%87%A6%F0%9F%87%B9%20%E2%9C%B0%20%D0%90%D0%B2%D1%81%D1%82%D1%80%D0%B8%D1%8F%20%F0%9F%8E%BB%20%E2%9C%B0",
     "vless://ab80fc7f-0a2b-4dd6-8e9c-f497001e7c73@admin.betust.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=admin.betust.net&fp=firefox&security=reality&pbk=zZjrHRzULoXKVccVdPqtrtXLEUPJXwqdE1138vu5x3w&sid=3e137406#%F0%9F%87%B1%F0%9F%87%B9%20%E2%9C%B3%20%D0%9B%D0%B8%D1%82%D0%B2%D0%B0%20%F0%9F%8F%B0%20%E2%9C%B3",
-    "vless://047466dd-05aa-4331-abf7-322c5aaecf97@ee.viralforge.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ee.viralforge.ru&fp=firefox&security=reality&pbk=HLKQ0JvyaZ16JNdl0pbEPkiVRYJDiZNzGz9prDMiw2s&sid=a1b2c3d4b5#%F0%9F%87%B1%F0%9F%87%B9%20%E2%9C%AE%20%D0%9B%D0%B8%D1%82%D0%B2%D0%B0%20%F0%9F%8F%B0%20%E2%9C%AS",
+    "vless://047466dd-05aa-4331-abf7-322c5aaecf97@ee.viralforge.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ee.viralforge.ru&fp=firefox&security=reality&pbk=HLKQ0JvyaZ16JNdl0pbEPkiVRYJDiZNzGz9prDMiw2s&sid=a1b2c3d4b5#%F0%9F%87%B1%F0%9F%87%B9%20%E2%9C%AE%20%D0%9B%D0%B8%D1%82%D0%B2%D0%B0%20%F0%9F%8F%B0%20%E2%9C%AE",
     #пропуск (не удалять!) . - , получается хуйня такая
 ]
 

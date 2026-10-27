@@ -1,4 +1,4 @@
-name: BaHapp
+name: bahapp.yml
 
 on:
   workflow_dispatch: {}      # + можно запустить руками

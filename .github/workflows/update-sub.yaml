@@ -155,7 +155,7 @@ jobs:
         run: |
           set -e
           FIRST=1
-          for wf in BL.yaml bahapp.yaml; do
+          for wf in BL.yml bahapp.yml; do
             if [ "${FIRST}" -eq 0 ]; then
               echo "[i] Жду 10 секунд перед запуском $wf"
               sleep 10

@@ -116,7 +116,7 @@ jobs:
     steps:
       - name: Trigger Wauto and Whapp
         env:
-          GH_TOKEN: ${{ GH_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -e
           FIRST=1

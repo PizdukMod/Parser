@@ -28,8 +28,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/ImSketch1337/vless-/refs/heads/main/BLWLservers.txt",
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
     "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
-    "https://mifa.world/free",
-    "https://jamshut.online/exec?url=http%3A%2F%2F77.110.104.181%3A5002%2Fsub%2FNU9CQ0czLDE3OTMxMDM5OTEpAdZ9ulGPj/auto",
+    "https://mifa.world/dalas",
 ]
 
 

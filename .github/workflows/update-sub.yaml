@@ -164,5 +164,5 @@ jobs:
               echo "[x] $wf: HTTP ${CODE}"; cat resp.txt; exit 1
             fi
             echo "[+] $wf запущен"
-            sleep 10
+            sleep 20
           done

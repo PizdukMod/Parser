@@ -29,6 +29,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
     "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
     "https://mifa.world/onix",
+    "https://pozor.bond/sub/utcwry9vug6k",
 ]
 
 
@@ -46,53 +47,32 @@ PINNED_CONFIGS = [
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@78.159.250.214:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=firefox&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=00000000#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%D1%8D%D1%82%D0%BE%202%20%28telegram-only%29",
     "vless://ff0b6ba8-bed0-4c4d-bbc9-23af47582615@wstg.datasynctrue.online:443/?type=ws&encryption=none&flow=&host=wstg.datasynctrue.online&path=%2Fapi%2Fconnect&security=tls&sni=wstg.datasynctrue.online&fp=chrome#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20LTE%F0%9F%93%B6%20Wi-Fi",
     "vless://ff0b6ba8-bed0-4c4d-bbc9-23af47582615@91.210.169.181:443/?type=ws&encryption=none&flow=&host=wstg.datasynctrue.online&path=%2Fapi%2Fconnect&security=tls&sni=wstg.datasynctrue.online&fp=firefox#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%202%20LTE%F0%9F%93%B6%20Wi-Fi",
-    "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@msk2.skysafe.online:2027/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=msk2.skysafe.online&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F",
+    "ss://YWVzLTI1Ni1nY206TlRpSEJnNjRmc1k4dThEYkdydHlwRDlnUEdTTDM4NnA@185.22.155.121:18443#🇷🇺 Россия ss",
     "vmess://eyJhZGQiOiJjZi4wc20uY29tIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3M/ZWRcdTAwM2QyMDQ4IiwicG9ydCI6IjgwIiwicHMiOiLwn4e68J+HuCDinKYg0KHQqNCQIOKcpiDwn4yAIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
-    "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@us-1.bnc-gt.co.uk:443/?type=xhttp&encryption=none&flow=&path=%2Fapi%2Fv1%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-300%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22393216-786432%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22noSSEHeader%22%3A%20true%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2030%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%22100-150%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22200-300%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%22300-600%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%2060%0A%20%20%7D%0A%7D&security=tls&sni=b.us-1.bnc-gt.co.uk#%F0%9F%87%BA%F0%9F%87%B8%20%D0%A1%D0%A8%D0%90",
-    "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@uusa.skysafe.online:2027/?type=xhttp&encryption=none&flow=&path=%2Fpatch&mode=auto&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-1000%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%221000000%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2230%22%2C%0A%20%20%22scStreamUpServerSecs%22%3A%20%2220-80%22%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConcurrency%22%3A%20%220%22%2C%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%220%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22600-900%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%0A%7D&sni=uusa.skysafe.online&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%BA%F0%9F%87%B8%20%D0%A1%D0%A8%D0%90%20%F0%9F%A4%96",
-    "vless://9737cc16-7266-45ce-94d9-6e05a45e0b9c@czech.nnight.cfd:443/?type=xhttp&encryption=none&flow=&host=czech.nnight.cfd&path=%2Fapi%2Fv4%2Fmedia%2Fsession%2Fpoll&mode=packet-up&extra=%7B%0A%20%20%22headers%22%3A%20%7B%0A%20%20%20%20%22Accept%22%3A%20%22application%2Fvnd.api%20json%2C%20application%2Fjson%2C%20text%2Fplain%2C%20*%2F*%22%2C%0A%20%20%20%20%22Pragma%22%3A%20%22no-cache%22%2C%0A%20%20%20%20%22Cache-Control%22%3A%20%22no-cache%22%2C%0A%20%20%20%20%22Accept-Language%22%3A%20%22ru-RU%2Cru%3Bq%3D0.9%2Cen-US%3Bq%3D0.8%2Cen%3Bq%3D0.7%22%0A%20%20%7D%2C%0A%20%20%22xPaddingBytes%22%3A%20%2248-320%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%221536-6144%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2210-30%22%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2064%2C%0A%20%20%22uplinkDataPlacement%22%3A%20%22header%22%2C%0A%20%20%22uplinkDataKey%22%3A%20%22X-Playback-Token%22%2C%0A%20%20%22uplinkHTTPMethod%22%3A%20%22GET%22%2C%0A%20%20%22seqPlacement%22%3A%20%22query%22%2C%0A%20%20%22seqKey%22%3A%20%22offset%22%2C%0A%20%20%22xPaddingObfsMode%22%3A%20true%2C%0A%20%20%22xPaddingKey%22%3A%20%22q%22%2C%0A%20%20%22xPaddingPlacement%22%3A%20%22query%22%2C%0A%20%20%22xPaddingMethod%22%3A%20%22tokenish%22%2C%0A%20%20%22serverMaxHeaderBytes%22%3A%2032768%2C%0A%20%20%22sessionPlacement%22%3A%20%22path%22%2C%0A%20%20%22sessionKey%22%3A%20%22media_sid%22%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConcurrency%22%3A%20%228-16%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%22128-256%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22600-1000%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%221800-3600%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%2030%0A%20%20%7D%0A%7D&security=tls&sni=czech.nnight.cfd&alpn=h2&fp=firefox#%F0%9F%87%A8%F0%9F%87%BF%20%D0%A7%D0%B5%D1%85%D0%B8%D1%8F%20YouTube%20%F0%9F%8E%A6",
-    "vless://ed9277bd-bd89-49e0-8294-1bf845363d5d@necf01.sonicservice.digital:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=necf01.sonicservice.digital&fp=qq&security=reality&pbk=z-TKWOWgZLfzQ-wNdwXQqVwaUgCmbchM2Xtrk1NGynU&sid=#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20YT%E2%9C%85",
+    "trojan://0ab6c98dae3b48e8b9c4a776b6c9c19a@208.69.78.19:443/?type=tcp&security=tls&sni=www.yourultimateprofessionalcareerhub.com&allowInsecure=1#%F0%9F%87%BA%F0%9F%87%B8%20%D0%A1%D0%A8%D0%90",
     "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.212:8080#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20YT%E2%9C%85",
     "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.178:8080#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20",
     "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpvWklvQTY5UTh5aGNRVjhrYTNQYTNB@82.38.31.54:8080#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20ss",
     "vless://6da2c981-8c77-4340-bda3-93399b7aea26@lectures.blog-forme.ru:443/?type=xhttp&encryption=none&flow=&path=%2Fv2%2Fsync%2Faf2c0c&mode=auto&extra=%7B%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConcurrency%22%3A%20%2216-32%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%220%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%2210800-14400%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%0A%7D&sni=lectures.blog-forme.ru&fp=edge&security=reality&pbk=nalACuCZjV1sZx7QOH6yAIDio8mFI0FgVKYQvQHBKS4&sid=fb3a5f2d4ca346ed#%F0%9F%87%B3%F0%9F%87%B1%20%E2%9D%96%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%F0%9F%93%9A%20%E2%9D%96",
-    "vless://5f53b921-2874-482a-b530-d3ee1d66cbc5@nl2.originmesh.online:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=nl2.originmesh.online&fp=firefox&security=reality&pbk=_MRd1VDQBecIufT-CXd5O73L8JBjBI8Iqag9V8xseDc&sid=eecfe76af97a6132#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
     "vless://6da2c981-8c77-4340-bda3-93399b7aea26@shorts.blog-forme.ru:443/?type=xhttp&encryption=none&flow=&path=%2Fv2%2Fsync%2Faf2c0c&mode=auto&extra=%7B%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConcurrency%22%3A%20%2216-32%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%200%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%2210800-14400%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%0A%7D&sni=shorts.blog-forme.ru&fp=edge&security=reality&pbk=nalACuCZjV1sZx7QOH6yAIDio8mFI0FgVKYQvQHBKS4&sid=fb3a5f2d4ca346ed#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%F0%9F%90%8C",
-    "vless://d9fe2431-8351-41eb-b956-75d96dec5d4a@2.27.118.10:443/?type=tcp&encryption=none&flow=&sni=ph-nl-s3784.cybercat.network&fp=chrome&security=reality&pbk=goey7Sc4Xm6Nvdukb_DuoUnrkPSV0p4hPWbAmk2_AHc&sid=ecf1d9f7caa6ba67#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%D0%9A%D0%B8%D0%B1%D0%B5%D1%80%20%F0%9F%98%BA",
-    "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@nl-2.bnc-gt.co.uk:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=a.nl-2.bnc-gt.co.uk&fp=firefox&security=reality&pbk=CegqLjzOImUmYD9ZdpOOG65UgNTGeQfRmpIni8iraB0&sid=7be1e9c243451b14#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
-    "vless://c19bd198-a393-492e-86fd-b389a03b4180@94.249.187.68:43000/?type=tcp&encryption=none&flow=xtls-rprx-vision&fp=chrome&security=reality&pbk=NXN75t-gk0tpVh74Thc7nPBXM4fytgMOZafDzSe8xAk&sid=353fdd95#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
-    "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@nl-2.bnc-gt.co.uk:443/?type=xhttp&encryption=none&flow=&path=%2Fapi%2Fv1%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-300%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22393216-786432%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22noSSEHeader%22%3A%20true%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2030%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%22100-150%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22200-300%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%22300-600%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%2060%0A%20%20%7D%0A%7D&security=tls&sni=a.nl-2.bnc-gt.co.uk#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@de-3.bnc-gt.co.uk:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=de-3.bnc-gt.co.uk&fp=firefox&security=reality&pbk=CegqLjzOImUmYD9ZdpOOG65UgNTGeQfRmpIni8iraB0&sid=7be1e9c243451b14#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@de-3.bnc-gt.co.uk:443/?type=xhttp&encryption=none&flow=&path=%2Fapi%2Fv1%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-300%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22393216-786432%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22noSSEHeader%22%3A%20true%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2030%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%22100-150%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22200-300%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%22300-600%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%2060%0A%20%20%7D%0A%7D&security=tls&sni=de-3.bnc-gt.co.uk#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
-    "vless://727a9178-d7f0-4142-8205-b0d19959ded0@185.23.19.34:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=bol.com&fp=edge&security=reality&pbk=yyXZsa238GRW90w5DweXAdRTtVSuK9oZF_dihKQ41So&sid=9e5a335de26d1f5a#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
-    "vless://5ae138db-e66a-46a9-bb53-686e72987a0f@217.60.144.91:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=twitch.tv&fp=firefox&security=reality&pbk=YGySmiYwnrw_7ABx4RaxSENH9lhyopvJH0ZnEPS_lRc&sid=c1ee14fa93b83bae#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
-    "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@de2.skysafe.online:2027/?type=grpc&encryption=none&flow=&serviceName=grpc-svc&sni=de2.skysafe.online&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%F0%9F%A4%96",
     "vless://6da2c981-8c77-4340-bda3-93399b7aea26@178.17.52.236:2083/?type=xhttp&encryption=none&flow=&path=%2Fv2%2Fsync%2F6e9367&mode=auto&sni=maps.blog-forme.ru&fp=edge&security=reality&pbk=mbi4BZAuiq_L6pfhG2xxWmtosq0Z1Pzf18fvNSWKMxY&sid=3258252d44113e23#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%F0%9F%97%BA",
-    "vless://4421e4d5-6869-4a45-a76b-5c822aac776d@94.249.186.64:43000/?type=tcp&encryption=none&flow=xtls-rprx-vision&fp=chrome&security=reality&pbk=QaPoY-5W4Z7NA_LUG37yjYNy3JWg53Ru7eWLTzec-nE&sid=b62ac375#%F0%9F%87%A9%F0%9F%87%AA%20%F0%9F%95%B9%EF%B8%8F%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%F0%9F%8E%AE",
-    "vless://6da2c981-8c77-4340-bda3-93399b7aea26@178.17.52.236:2083/?type=xhttp&encryption=none&flow=&path=%2Fv2%2Fsync%2F6e9367&mode=auto&sni=maps.blog-forme.ru&fp=edge&security=reality&pbk=mbi4BZAuiq_L6pfhG2xxWmtosq0Z1Pzf18fvNSWKMxY&sid=3258252d44113e23#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%F0%9F%97%",
     "vless://727a9178-d7f0-4142-8205-b0d19959ded0@de-2.ffpn.pro:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=de-2.ffpn.pro&fp=firefox&security=reality&pbk=DCpi9-1rSXxBnEIAQ9U3mTqHivk7vHJRV_T2pWw5vCc&sid=681fc2dd643bc2f3#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F",
-    "vless://ed9277bd-bd89-49e0-8294-1bf845363d5d@decf01.sonicservice.digital:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=decf01.sonicservice.digital&fp=qq&security=reality&pbk=z-TKWOWgZLfzQ-wNdwXQqVwaUgCmbchM2Xtrk1NGynU&sid=#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F",
     "ss://YWVzLTI1Ni1nY206WlJwZ2FCZUd4dEVOSVhndmhwa1pCS3o5R25XUlMyZFljeDlPK2EyaXdOND0@202.50.253.72:19999#%F0%9F%87%AE%F0%9F%87%B9%20%D0%98%D1%82%D0%B0%D0%BB%D0%B8%D1%8F",
     "ss://YWVzLTI1Ni1nY206WlJwZ2FCZUd4dEVOSVhndmhwa1pCS3o5R25XUlMyZFljeDlPK2EyaXdOND0@202.50.253.99:19999#🇮🇹 ⟡ Италия 🍕 ⟡",
     "vless://50a87e21-f0e2-4b53-a787-91adfe748f63@swedenafteraventura.space:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=swedenafteraventura.space&fp=chrome&security=reality&pbk=TyuIIquHoesD9YwMQJHda0YZ3Hy9Dh123dQ00iGK0QY&sid=#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20%E2%9A%A1%EF%B8%8F",
     "vless://a0fa7e19-70ec-41e0-b0cc-bcc984d4201a@s12.bsh-net.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=s12.bsh-net.ru&fp=firefox&security=reality&pbk=QvT-t_h_AF2EAT4Ggh_a6pcCK3StY8G9WCXn6-dJbxk&sid=51079f144d661484#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20%F0%9F%8C%90",
     "vless://f8d52ece-fad4-478d-875d-df6eed3befa7@pl-b1.golangwikito.cfd:61374/?type=xhttp&encryption=none&flow=&host=pl-b1.golangwikito.cfd&path=%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-500%22%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%223%22%0A%20%20%7D%0A%7D&sni=pl-b1.golangwikito.cfd&fp=chrome&security=reality&pbk=QrNs0ew7snHqLfpVXS9RAhlRzgAzzGZK9fXmDcx9xHI&sid=&packetEncoding=xudp#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0",
-    "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@201.58.181.132:2027/?type=xhttp&encryption=none&flow=&path=%2Fpatch&mode=auto&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-1000%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%221000000%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2230%22%2C%0A%20%20%22scStreamUpServerSecs%22%3A%20%2220-80%22%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConcurrency%22%3A%20%220%22%2C%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%220%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22600-900%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%0A%7D&sni=2gis.ru&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0%20%F0%9F%A4%96",
-    "vless://ed9277bd-bd89-49e0-8294-1bf845363d5d@plhd.sonicservice.digital:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=plhd.sonicservice.digital&fp=qq&security=reality&pbk=z-TKWOWgZLfzQ-wNdwXQqVwaUgCmbchM2Xtrk1NGynU&sid=#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0",
-    "vless://abca037b-bee5-41cc-a888-0668e4c66176@31.76.70.90:443/?type=xhttp&encryption=none&flow=&path=%2Fconv4%2Fstream%2F77dd2aeeb94331fbff325bb48850392b&mode=auto&security=tls&sni=597dad6b.con.fernarchive.online&fp=firefox#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20%F0%9F%91%A8",
-    "vless://30b08c3d-f208-4993-91c9-af86a5f4a2f0@94.249.187.43:43000/?type=tcp&encryption=none&flow=xtls-rprx-vision&fp=chrome&security=reality&pbk=cVy14rseOu0oTTXUjxSTcedkkxEJfH9XCdxFW3fT92k&sid=6fa3822e#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@13.143.176.83:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=a.es-1.bnc-gt-r1.co.uk&fp=firefox&security=reality&pbk=CegqLjzOImUmYD9ZdpOOG65UgNTGeQfRmpIni8iraB0&sid=7be1e9c243451b14#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@13.143.176.83:443/?type=xhttp&encryption=none&flow=&path=%2Fapi%2Fv1%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-300%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22393216-786432%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22noSSEHeader%22%3A%20true%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2030%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%22100-150%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22200-300%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%22300-600%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%2060%0A%20%20%7D%0A%7D&security=tls&sni=a.es-1.bnc-gt-r1.co.uk#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F",
-    "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@es-2.bnc-gt.co.uk:443/?type=xhttp&encryption=none&flow=&path=%2Fapi%2Fv1%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-300%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22393216-786432%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22noSSEHeader%22%3A%20true%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2030%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%22100-150%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22200-300%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%22300-600%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%2060%0A%20%20%7D%0A%7D&security=tls&sni=a.es-2.bnc-gt.co.uk#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20%282%29",
     "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@aq.skysafe.online:2027/?type=xhttp&encryption=none&flow=&path=%2Fpatch&mode=auto&extra=%7B%0A%20%20%22enablePadding%22%3A%20true%2C%0A%20%20%22maxConcurrency%22%3A%20100%0A%7D&sni=aq.skysafe.online&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%A6%F0%9F%87%B6%20%D0%90%D0%BD%D1%82%D0%B0%D1%80%D0%BA%D1%82%D0%B8%D0%B4%D0%B0%20%F0%9F%A4%96",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@fi-1.bnc-gt.co.uk:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=b.fi-1.bnc-gt.co.uk&fp=qq&security=reality&pbk=CegqLjzOImUmYD9ZdpOOG65UgNTGeQfRmpIni8iraB0&sid=7be1e9c243451b14#%F0%9F%87%AB%F0%9F%87%AE%20%D0%A4%D0%B8%D0%BD%D0%BB%D1%8F%D0%BD%D0%B4%D0%B8%D1%8F",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@fi-1.bnc-gt.co.uk:443/?type=xhttp&encryption=none&flow=&path=%2Fapi%2Fv1%2F&mode=packet-up&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-300%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22393216-786432%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22noSSEHeader%22%3A%20true%2C%0A%20%20%22scMaxBufferedPosts%22%3A%2030%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%22100-150%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22200-300%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%22300-600%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%2060%0A%20%20%7D%0A%7D&security=tls&sni=b.fi-1.bnc-gt.co.uk#%F0%9F%87%AB%F0%9F%87%AE%20%D0%A4%D0%B8%D0%BD%D0%BB%D1%8F%D0%BD%D0%B4%D0%B8%D1%8F",
-    "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@fn.skysafe.online:2027/?type=xhttp&encryption=none&flow=&path=%2Fpatch&mode=auto&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-1000%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%221000000%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2230%22%2C%0A%20%20%22scStreamUpServerSecs%22%3A%20%2220-80%22%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConcurrency%22%3A%20%220%22%2C%0A%20%20%20%20%22maxConnections%22%3A%20%221%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%220%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22600-900%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%0A%7D&sni=fn.skysafe.online&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%AB%F0%9F%87%AE%20%D0%A4%D0%B8%D0%BD%D0%BB%D1%8F%D0%BD%D0%B4%D0%B8%D1%8F",
     "vless://a0fa7e19-70ec-41e0-b0cc-bcc984d4201a@67.159.52.51:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=snp.bsh-net.ru&fp=firefox&security=reality&pbk=iE4sTz-Q2Frkm7WM32P1wm4at49Wpaj5vo-2FsLcN1M&sid=8854f17e2a5af2d8#%F0%9F%87%B8%F0%9F%87%AC%20%D0%A1%D0%B8%D0%BD%D0%B3%D0%B0%D0%BF%D1%83%D1%80%2067",
     "vless://a0fa7e19-70ec-41e0-b0cc-bcc984d4201a@snp.bsh-net.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=snp.bsh-net.ru&fp=firefox&security=reality&pbk=iE4sTz-Q2Frkm7WM32P1wm4at49Wpaj5vo-2FsLcN1M&sid=8854f17e2a5af2d8#%F0%9F%87%B8%F0%9F%87%AC%20%D0%A1%D0%B8%D0%BD%D0%B3%D0%B0%D0%BF%D1%83%D1%80%20%F0%9F%8C%90",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@fr-2.bnc-gt.co.uk:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=b-wl.fr-2.bnc-gt.co.uk&fp=qq&security=reality&pbk=CegqLjzOImUmYD9ZdpOOG65UgNTGeQfRmpIni8iraB0&sid=7be1e9c243451b14#%F0%9F%87%AB%F0%9F%87%B7%20%D0%A4%D1%80%D0%B0%D0%BD%D1%86%D0%B8%D1%8F%20%281%29",
     "vless://7d1a74fd-8a38-4a29-863f-5da53a9e557e@api.ferrin.uk:443/?type=xhttp&encryption=none&flow=&path=%2Fes&mode=stream-one&security=tls&sni=7d1a74fd.ferrin.uk#%F0%9F%87%AA%F0%9F%87%B8%20%D0%98%D1%81%D0%BF%D0%B0%D0%BD%D0%B8%D1%8F",
-    "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@185.232.205.13:2027/?type=grpc&encryption=none&flow=&serviceName=grpc-svc&sni=isp2.skysafe.online&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%AA%F0%9F%87%B8%20%D0%98%D1%81%D0%BF%D0%B0%D0%BD%D0%B8%D1%8F%20%F0%9F%A4%96",
     "vless://7b22dce8-7ebd-425b-8ca4-7b6190321985@jp-1.bnc-gt.co.uk:443/?type=grpc&encryption=none&flow=&serviceName=grpc&security=tls&sni=b.jp-1.bnc-gt.co.uk#%F0%9F%87%AF%F0%9F%87%B5%20%D0%AF%D0%BF%D0%BE%D0%BD%D0%B8%D1%8F",
     "vless://6a6ac9b3-b336-44f7-a1c4-a03d6c2fae9e@yap.skysafe.online:2027/?type=xhttp&encryption=none&flow=&path=%2Fpatch&mode=auto&extra=%7B%0A%20%20%22enablePadding%22%3A%20true%2C%0A%20%20%22maxConcurrency%22%3A%20100%0A%7D&sni=yap.skysafe.online&fp=qq&security=reality&pbk=EApxy12MeXpqt-78odxizwcXT6hX9f8XeAcbMDVRAV0&sid=6ba7b8109dad11d1#%F0%9F%87%AF%F0%9F%87%B5%20%D0%AF%D0%BF%D0%BE%D0%BD%D0%B8%D1%8F",
     #пропуск (не удалять!) . - , получается хуйня такая
@@ -107,7 +87,7 @@ TARGET_COUNT = 60          # сколько конфигов взять в ит�
 EARLY_STOP_MULT = 3        # остановить проверку, когда найдено TARGET_COUNT * N рабочих
                            # (из них берутся лучшие по пингу). 0 = проверять все
 
-MAX_PING_MS = 3000         # отсечка совсем медленных (пинг через прокси)
+MAX_PING_MS = 3000         # отсечка совсем медленных (итоговый балл: пинг + вклад скорости)
 GOOD_PING_MS = 300         # только для значков в логе
 
 MAX_TCP_PING_MS = 1700     # TCP-пинг выше этого (или нет ответа) — в xray не идёт
@@ -137,7 +117,7 @@ TEST_URLS = [
 ]
 
 # Строгая проверка: КАЖДЫЙ тестовый URL должен ответить в КАЖДОМ раунде.
-# Первый раунд — «холодный» (рукопожатие), последний — «тёплый», по нему считается пинг.
+# Первый раунд — «холодный» (рукопожатие), остальные — «тёплые», по ним считается пинг.
 CHECK_ROUNDS = 3
 
 # --- Защита от «соединение закрыто» и тайм-аутов ---
@@ -152,6 +132,19 @@ DOWNLOAD_URLS = [           # достаточно, чтобы прошёл ХО
 DOWNLOAD_BYTES = 1_000_000
 DOWNLOAD_TIMEOUT = 15.0
 REQUIRE_DOWNLOAD = True     # False — если раннер не достаёт до DOWNLOAD_URLS
+DOWNLOAD_MAX_MS = 7000      # 1 МБ дольше этого — слишком медленно
+SPEED_WEIGHT = 0.1          # вклад времени загрузки в итоговый балл (ниже = лучше)
+
+# --- Доступ к заблокированным сайтам (главное для ЧС-подписки) ---
+BLOCKED_URLS = [
+    "https://www.youtube.com/generate_204",
+    "https://www.instagram.com/",
+    "https://api.telegram.org/",
+]
+MIN_BLOCKED_OK = 2          # сколько из BLOCKED_URLS должны открыться (0 = не проверять)
+
+# --- Стабильность ---
+MAX_JITTER = 2.5            # макс/мин пинг в тёплых раундах (+100 мс запаса)
 
 # --- Реальная проверка выходного IP ---
 # Через каждый прокси спрашиваем у IP-эхо сервиса, какой у нас IP.
@@ -167,6 +160,7 @@ DEDUPE_BY_EXIT_IP = True    # дубли по реальному выходно�
 # отсекает «мигающие» серверы, которые прошли проверку случайно.
 CONFIRM_BEST = True
 CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
+CONFIRM_CONCURRENCY = 5    # при повторной проверке меньше нагрузки = честнее скорость
 
 GEO_DELAY = 0.3            # пауза между гео-запросами
 PROGRESS_EVERY = 50        # как часто писать прогресс проверки (раз в N конфигов)
@@ -191,7 +185,7 @@ _exit_ip = {}               # config -> выходной IP
 
 
 # ============================================================
-# НАЗВАНИЯ СТРАН
+# НАЗВАНИЯ СТРАН И ГОРОДОВ
 # ============================================================
 
 COUNTRY_NAMES = {
@@ -213,6 +207,35 @@ COUNTRY_NAMES = {
     "VN": "Вьетнам", "ID": "Индонезия", "MY": "Малайзия", "PH": "Филиппины",
     "NZ": "Новая Зеландия",
 }
+
+# Длинные названия сокращаем
+COUNTRY_NAMES.update({
+    "GB": "Британия", "UK": "Британия", "KR": "Юж. Корея",
+    "NZ": "Нов. Зеландия", "LI": "Лихтенш.",
+})
+
+# Запасной словарь, если ни один сервис не вернул город по-русски
+CITY_RU = {
+    "Frankfurt am Main": "Франкфурт", "Frankfurt": "Франкфурт", "Amsterdam": "Амстердам",
+    "Helsinki": "Хельсинки", "Falkenstein": "Фалькенштайн", "Nuremberg": "Нюрнберг",
+    "London": "Лондон", "Paris": "Париж", "Warsaw": "Варшава", "Stockholm": "Стокгольм",
+    "Vienna": "Вена", "Prague": "Прага", "Tallinn": "Таллин", "Riga": "Рига",
+    "Vilnius": "Вильнюс", "Moscow": "Москва", "Saint Petersburg": "Санкт-Петербург",
+    "St Petersburg": "Санкт-Петербург", "New York": "Нью-Йорк", "Los Angeles": "Лос-Анджелес",
+    "Tokyo": "Токио", "Istanbul": "Стамбул", "Madrid": "Мадрид", "Milan": "Милан",
+    "Zurich": "Цюрих", "Dublin": "Дублин", "Almaty": "Алматы", "Kyiv": "Киев",
+    "Berlin": "Берлин", "Rome": "Рим", "Oslo": "Осло", "Copenhagen": "Копенгаген",
+    "Brussels": "Брюссель", "Lisbon": "Лиссабон", "Bucharest": "Бухарест",
+    "Sofia": "София", "Budapest": "Будапешт", "Belgrade": "Белград", "Athens": "Афины",
+    "Tbilisi": "Тбилиси", "Yerevan": "Ереван", "Baku": "Баку", "Dubai": "Дубай",
+    "Tel Aviv": "Тель-Авив", "Chicago": "Чикаго", "Miami": "Майами", "Dallas": "Даллас",
+    "Seattle": "Сиэтл", "San Jose": "Сан-Хосе", "Ashburn": "Эшберн", "Toronto": "Торонто",
+    "Montreal": "Монреаль", "Sydney": "Сидней", "Seoul": "Сеул", "Osaka": "Осака",
+    "Mumbai": "Мумбаи", "Sao Paulo": "Сан-Паулу", "Johannesburg": "Йоханнесбург",
+}
+
+# Серверы за этими CDN не считаем каскадом (страна «входа» там ничего не значит)
+CDN_WORDS = ("cloudflare", "fastly", "akamai", "cloudfront", "gcore", "bunny")
 
 
 # ============================================================
@@ -253,7 +276,7 @@ def make_geo_name(country_code, city):
     country = get_country_name(country_code)
     if city:
         city = str(city).strip()
-        if city:
+        if city and city != country:
             return f"{flag} {country} — {city}"
     return f"{flag} {country}"
 
@@ -935,15 +958,15 @@ async def fetch_ip(session, timeout=8.0):
 
 # ============================================================
 # ОДИН ТЕСТОВЫЙ ЗАПРОС: бросает исключение при любой ошибке
-# (статус не 200/204, обрыв, тайм-аут, слишком короткое тело)
+# (статус не из ok_status, обрыв, тайм-аут, слишком короткое тело)
 # Возвращает время в мс.
 # ============================================================
 
-async def _fetch_ok(session, url, min_bytes=0, timeout=None):
+async def _fetch_ok(session, url, min_bytes=0, timeout=None, ok_status=(200, 204)):
     start = time.monotonic()
     kw = {"timeout": aiohttp.ClientTimeout(total=timeout)} if timeout else {}
     async with session.get(url, **kw) as resp:
-        if resp.status not in (200, 204):
+        if resp.status not in ok_status:
             raise ValueError(f"status {resp.status}")
         body = await resp.read()
     if len(body) < min_bytes:
@@ -952,14 +975,17 @@ async def _fetch_ok(session, url, min_bytes=0, timeout=None):
 
 
 # ============================================================
-# РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ ЯДРО (xray / sing-box) — возвращает пинг (мс) или None
+# РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ ЯДРО (xray / sing-box) — возвращает балл (мс) или None
 # Строго: все тестовые URL должны ответить во всех раундах,
 # HTTPS-сертификаты проверяются (подменённый/«дырявый» прокси не проходит).
 # Дальше:
 #   1) пауза и повторный запрос по тому же соединению (keep-alive);
 #   2) реальный выходной IP: определяется и не совпадает с нашим;
-#   3) параллельный залп на новых соединениях;
-#   4) скачивание ~1 МБ (обрывы посреди передачи, слишком медленные).
+#   3) доступ к заблокированным сайтам (YouTube / Instagram / Telegram);
+#   4) параллельный залп на новых соединениях;
+#   5) скачивание ~1 МБ (обрывы, слишком медленные);
+#   6) разброс пинга (отсев «прыгающих» серверов).
+# Итоговый балл = средний пинг в тёплых раундах + вклад времени загрузки.
 # Одинаково для vless / vmess / trojan / ss / hy2.
 # ============================================================
 
@@ -970,10 +996,9 @@ async def _probe(line, port):
     latencies = []
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
         for rnd in range(CHECK_ROUNDS):
-            last_round = rnd == CHECK_ROUNDS - 1
             for url in TEST_URLS:
                 ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
-                if last_round:
+                if rnd > 0:                          # первый раунд «холодный» — не считаем
                     latencies.append(ms)
 
         # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
@@ -988,7 +1013,18 @@ async def _probe(line, port):
         if exit_ip:
             _exit_ip[line] = exit_ip
 
+        # доступ к заблокированным сайтам
+        if BLOCKED_URLS and MIN_BLOCKED_OK:
+            res_b = await asyncio.gather(
+                *(_fetch_ok(session, u, timeout=10, ok_status=range(200, 400))
+                  for u in BLOCKED_URLS),
+                return_exceptions=True,
+            )
+            if sum(not isinstance(r, Exception) for r in res_b) < MIN_BLOCKED_OK:
+                return None
+
     # параллельный залп на НОВЫХ соединениях + загрузка файла
+    dl_ms = None
     conn2 = aiohttp_socks.ProxyConnector.from_url(
         f"socks5://127.0.0.1:{port}", force_close=True
     )
@@ -1000,20 +1036,20 @@ async def _probe(line, port):
             return None
 
         if DOWNLOAD_URLS:
-            dl_ok = False
             for url in DOWNLOAD_URLS:
                 try:
-                    await _fetch_ok(s2, url, DOWNLOAD_BYTES * 0.9, DOWNLOAD_TIMEOUT)
-                    dl_ok = True
+                    dl_ms = await _fetch_ok(s2, url, DOWNLOAD_BYTES * 0.9, DOWNLOAD_TIMEOUT)
                     break
                 except Exception:
                     continue
-            if REQUIRE_DOWNLOAD and not dl_ok:
+            if REQUIRE_DOWNLOAD and (dl_ms is None or dl_ms > DOWNLOAD_MAX_MS):
                 return None
 
     if not latencies:
         return None
-    return sum(latencies) / len(latencies)
+    if max(latencies) > MAX_JITTER * min(latencies) + 100:
+        return None  # слишком большой разброс пинга
+    return sum(latencies) / len(latencies) + (dl_ms or 0) * SPEED_WEIGHT
 
 
 async def real_check(line):
@@ -1029,20 +1065,24 @@ async def real_check(line):
 # ============================================================
 # GEO: консенсус нескольких сервисов
 # ip="" -> сначала узнаём выходной IP через прокси, затем страну по нему
+# Город берём по-русски: сервисы с lang=ru / name_ru, иначе словарь CITY_RU,
+# иначе город не пишем.
 # ============================================================
 
 GEO_PROVIDERS = [
     ("ipinfo", "https://ipinfo.io/{ip}/json"),
-    ("ipwho",  "https://ipwho.is/{ip}"),
+    ("ipwho",  "https://ipwho.is/{ip}?lang=ru"),
     ("geojs",  "https://get.geojs.io/v1/ip/geo/{ip}.json"),
     ("dbip",   "https://api.db-ip.com/v2/free/{ip}"),
     ("ipapico","https://ipapi.co/{ip}/json/"),
-    ("ipapi",  "http://ip-api.com/json/{ip}?fields=status,countryCode,city"),
+    ("ipapi",  "http://ip-api.com/json/{ip}?fields=status,countryCode,city&lang=ru"),
     ("sypex",  "https://api.sypexgeo.net/json/{ip}"),
 ]
 
 GEO_MIN_AGREE = 2              # минимум сервисов, согласных по стране
 GEO_USE_SERVER_FALLBACK = False  # гео по IP сервера часто врёт — выключено
+
+_CYRILLIC = re.compile("[А-Яа-яЁё]")
 
 
 def parse_geo(kind, data):
@@ -1091,6 +1131,17 @@ async def _geo_provider(session, idx, kind, tpl, ip):
         return idx, None, None
 
 
+def pick_city_ru(cities):
+    """Из списка названий города выбирает русское; иначе переводит словарём; иначе None."""
+    for c in cities:
+        if _CYRILLIC.search(c):
+            return c
+    for c in cities:
+        if c in CITY_RU:
+            return CITY_RU[c]
+    return None
+
+
 async def geo_lookup(session, ip=""):
     """Страна по КОНСЕНСУСУ нескольких сервисов. Возвращает (code, geo_name)."""
     # через прокси сначала узнаём реальный выходной IP, потом спрашиваем про него
@@ -1119,7 +1170,8 @@ async def geo_lookup(session, ip=""):
     if responded >= GEO_MIN_AGREE and agree < GEO_MIN_AGREE:
         return None, None
 
-    city = next((c for _, c in sorted(votes[best], key=lambda x: x[0]) if c), None)
+    cities = [str(c).strip() for _, c in sorted(votes[best], key=lambda x: x[0]) if c]
+    city = pick_city_ru(cities)
     return best, make_geo_name(best, city)
 
 
@@ -1140,6 +1192,34 @@ async def exit_geo(line):
                 return await geo_lookup(s)
     except Exception:
         return None, None
+
+
+# ============================================================
+# КАСКАД: вход и выход в разных странах
+# Страна выхода — по реальному выходному IP (она в названии конфига),
+# страна входа — по IP сервера из конфига. Серверы за CDN пропускаем.
+# ============================================================
+
+async def detect_cascade(session, config, exit_ip, exit_code):
+    """Флаг страны ВХОДА, если конфиг — каскад, иначе None."""
+    hp = get_host_port(config)
+    if not hp or not exit_code:
+        return None
+    ip = await resolve_ip(hp[0])
+    if not ip or ip == exit_ip:
+        return None
+    try:
+        async with session.get(f"https://ipinfo.io/{ip}/json",
+                               timeout=aiohttp.ClientTimeout(total=8)) as r:
+            org = str((await r.json(content_type=None)).get("org", "")).lower()
+        if any(w in org for w in CDN_WORDS):
+            return None
+    except Exception:
+        pass
+    code, _ = await geo_lookup(session, ip)
+    if code and code != exit_code.upper():
+        return get_country_flag(code)
+    return None
 
 
 # ============================================================
@@ -1186,7 +1266,7 @@ async def fetch_source(session, url):
 
 async def check_all(candidates):
     """Проверяет конфиги через xray / sing-box.
-    Возвращает (working, failed): working — список (config, latency_ms),
+    Возвращает (working, failed): working — список (config, score_ms),
     failed — список реально проверенных, но нерабочих конфигов."""
     semaphore = asyncio.Semaphore(CONCURRENCY)
     working = []
@@ -1229,7 +1309,7 @@ async def check_all(candidates):
 # ============================================================
 
 async def dedupe_by_ip(items, taken=None):
-    """items: список (config, latency), уже отсортированный по пингу.
+    """items: список (config, latency), уже отсортированный по баллу.
     taken: множество (ip, port), которые уже заняты (закреплённые)."""
     seen = set(taken or ())
 
@@ -1255,14 +1335,14 @@ async def dedupe_by_ip(items, taken=None):
 
 # ============================================================
 # ПОВТОРНАЯ ПРОВЕРКА ЛУЧШИХ
-# Берём кандидатов по порядку пинга и проверяем второй раз отдельным ядром.
+# Берём кандидатов по порядку балла и проверяем второй раз отдельным ядром.
 # Остаются только те, кто прошёл оба раза. Идём, пока не наберём TARGET_COUNT.
 # ============================================================
 
 async def confirm_best(items):
     confirmed = []
     idx = 0
-    semaphore = asyncio.Semaphore(CONCURRENCY)
+    semaphore = asyncio.Semaphore(CONFIRM_CONCURRENCY)
 
     async def worker(config, first_latency):
         async with semaphore:
@@ -1389,7 +1469,7 @@ async def main():
             print("[x] Ни один сервер не ответил по TCP.")
             return
 
-        # ---------- 3.1 реальная проверка (+ выходной IP) ----------
+        # ---------- 3.1 реальная проверка (+ выходной IP, заблокированные сайты, скорость) ----------
         print(f"\n[i] Реальная проверка: {len(candidates)} "
               f"(xray: {len(tcp_ok)}, hy2: {len(hy2_cands)})...")
         working, failed = await check_all(candidates)
@@ -1404,7 +1484,7 @@ async def main():
             print("[x] Рабочих конфигов нет.")
             return
 
-        # ---------- 4. лучшие по пингу, без дублей, с повторной проверкой ----------
+        # ---------- 4. лучшие по баллу, без дублей, с повторной проверкой ----------
         working.sort(key=lambda x: x[1])
 
         # IP:порт закреплённых тоже считаем занятыми
@@ -1427,13 +1507,13 @@ async def main():
         else:
             best = working
         best = best[:TARGET_COUNT]
-        print(f"[i] Беру лучших по пингу: {len(best)}")
+        print(f"[i] Беру лучших: {len(best)}")
 
         if not best:
             print("[x] После повторной проверки рабочих не осталось.")
             return
 
-        # ---------- 5. страна/город по реальному выходному IP + переименование ----------
+        # ---------- 5. страна/город по реальному выходному IP + каскады + переименование ----------
         print("\n[i] Определяю страны (по выходному IP)...")
         geo_sem = asyncio.Semaphore(CONCURRENCY)
         geo_done = 0
@@ -1455,21 +1535,29 @@ async def main():
                     if hp:
                         ip = await resolve_ip(hp[0])
                         code, name = await get_server_geo(session, ip)
+                # 4) каскад: страна входа отличается от страны выхода
+                casc = None
+                try:
+                    casc = await detect_cascade(session, config, exit_ip, code)
+                except Exception:
+                    casc = None
                 await asyncio.sleep(GEO_DELAY)
                 geo_done += 1
                 if geo_done % 10 == 0 or geo_done == len(best):
                     print(f"    гео {geo_done}/{len(best)}")
-                return code, name
+                return code, name, casc
 
         geos = await asyncio.gather(*(geo_one(c) for c, _ in best))
 
         items = []  # (country_name, latency, renamed_line)
-        for (config, latency), (code, name) in zip(best, geos):
+        for (config, latency), (code, name, casc) in zip(best, geos):
             final_name = name or "🌐 Неизвестно"
+            if casc:
+                final_name += f" {casc}Каскад"
             country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
             items.append((country_key, latency, rename_config(config, final_name)))
 
-        # группируем по стране, внутри страны — по пингу
+        # группируем по стране, внутри страны — по баллу
         items.sort(key=lambda x: (x[0], x[1]))
         renamed = [line for _, _, line in items]
 

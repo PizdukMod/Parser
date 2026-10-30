@@ -4,9 +4,11 @@ import asyncio
 import aiohttp
 import aiohttp_socks
 import base64
+import hashlib
 import ipaddress
 import json
 import socket
+import statistics
 import tempfile
 import os
 import itertools
@@ -76,35 +78,70 @@ PINNED_CONFIGS = [
 MAX_PER_SOURCE = 1000
 MIN_PER_SOURCE = 1
 
+# --- СТРОГИЙ РЕЖИМ БС + ГАРАНТИЯ КОЛИЧЕСТВА ---
+# Каждому конфигу ставится уровень доверия к «это правда БС» (tier):
+#   3 = РФ-вход (IP сервера в РФ) И (SNI из WL_DOMAINS ИЛИ ASN из ASN_WL_KEYWORDS ИЛИ это каскад РФ→мир)
+#   2 = только SNI из WL_DOMAINS ИЛИ только IP в РФ
+#   1 = БС только по названию
+# За непройденную проверку данных и за нестабильность между запусками уровень снижается на 1.
+# В файл идут сначала все конфиги с tier >= STRICT_MIN_TIER. Если их меньше MIN_TOTAL —
+# добираются лучшие из остальных (сверху вниз по tier, потом по пингу), пока не наберётся MIN_TOTAL.
+STRICT_WL = True            # False = брать всё, что похоже на БС (tier >= 1)
+STRICT_MIN_TIER = 3         # порог «основной» части подписки
+MIN_TOTAL = 30              # минимум конфигов в подписке (без закреплённых)
+MAX_TOTAL = 0               # максимум конфигов в подписке (0 = без ограничения)
+ONLY_XRAY_PROTOCOLS = True  # True = выкинуть hysteria2/tuic/ssr (их TCP-проверка ничего не доказывает, это UDP)
+
+# ASN сервера (поле "as" из ip-api): хостеры/операторы РФ, чьи подсети чаще попадают в БС
+ASN_WL_KEYWORDS = (
+    "yandex", "vkontakte", "vk.com", "mail.ru", "sber", "selectel", "timeweb",
+    "rostelecom", "mts", "megafon", "beeline", "vimpelcom", "tele2", "rtcomm",
+)
+
+# --- многократная проверка ---
+PROBE_COUNT = 3             # сколько запросов через прокси
+PROBE_MIN_OK = 2            # сколько из них должно пройти; пинг = медиана успешных
+CHECK_ATTEMPTS = 2          # повтор, если xray просто не успел стартовать (не битый конфиг)
+
+DATA_CHECK = True           # скачать небольшой файл через прокси: рукопожатие есть, а данные идут?
+DATA_URLS = (
+    "https://speed.cloudflare.com/__down?bytes=65536",
+    "https://httpbin.org/bytes/65536",
+)
+DATA_MIN_BYTES = 32768
+DATA_TIMEOUT = 6.0
+
+# --- стабильность между запусками ---
+STABILITY_ENABLED = True
+STABILITY_RUNS = 3          # сколько последних запусков помнить
+STABILITY_MIN = 2           # сколько из них должно быть успешными (включая текущий)
+                            # новые конфиги без истории считаются стабильными
+STATE_FILE = Path("output/state.json")   # закоммить его вместе с sub.txt, иначе история не сохранится
+
+# --- «медленный резерв»: если после отбора меньше MIN_TOTAL, берём рабочие, но медленнее MAX_PING_MS ---
+SLOW_FILL_MAX_PING_MS = 300
+
 # --- распределение по странам ---
 MAX_PER_COUNTRY = 0       # максимум ПРЯМЫХ конфигов на одну страну в итоговом файле (0 = без ограничения)
 MIN_COUNTRIES_KEEP_ALL = 0 # если стран меньше N — лимит по стране не применяется (0 = выключено)
 
 # --- КАСКАДЫ (вход в РФ -> выход в другой стране) ---
-# Каскад определяется так: страна IP самого сервера (вход) != страна реального выходного IP.
-# Такие конфиги проходят отдельный (более мягкий) лимит по пингу, отдельные лимиты по количеству,
-# НЕ удаляются как дубли по выходному IP (у каскадов разные входы часто выходят через один IP)
-# и подписываются в конце: "🇩🇪 Германия — Франкфурт (вход 🇷🇺 Россия)".
 KEEP_CASCADES = True
-CASCADE_ENTRY_COUNTRIES = ("RU",)   # входом каскада считается сервер в этих странах; () = любая страна
+CASCADE_ENTRY_COUNTRIES = ("RU",)
 CASCADE_LABEL = "(вход {flag} {country})"   # {flag} {country} {code}
-MAX_PING_CASCADE_MS = 350           # у каскадов два прыжка — пинг естественно выше
-MAX_CASCADES_PER_SOURCE = 30        # лучших каскадов с одного источника
-MAX_CASCADES_PER_COUNTRY = 10       # каскадов на одну страну ВЫХОДА в итоговом файле (0 = без ограничения)
+MAX_PING_CASCADE_MS = 350
+MAX_CASCADES_PER_SOURCE = 40
+MAX_CASCADES_PER_COUNTRY = 15
 
 # --- удаление дубликатов ---
-DEDUPE_BY_EXIT_IP = True   # дубли ПРЯМЫХ конфигов по реальному выходному IP (из проверки через прокси).
-                           # Каскады под это правило не попадают.
+DEDUPE_BY_EXIT_IP = True
 
 # --- РЕЖИМ БЕЛЫХ СПИСКОВ (БС) ---
 WHITELIST_ONLY = True        # True = оставлять только конфиги белых списков
-WL_TRUST_NAME = True         # считать БС-конфигом, если в названии есть "БС" / "белые списки" / "whitelist"
-WL_ACCEPT_RU_IP = True       # считать БС-конфигом и тот, чей сервер по geo находится в РФ (каскады РФ→мир, SNI может быть любым)
-WL_ONLY_RU_SERVERS = False   # True = оставлять только конфиги, у которых РЕАЛЬНЫЙ ВЫХОДНОЙ IP в РФ.
-                             # Это выбросит все каскады (у них выход не в РФ), поэтому держи False
+WL_TRUST_NAME = True         # БС по названию ("БС" / "белые списки" / "whitelist") — теперь только tier 1
+WL_ACCEPT_RU_IP = True       # кандидатами считаются и серверы с IP в РФ (каскады РФ→мир); сами по себе — tier 2
+WL_ONLY_RU_SERVERS = False   # True = только РЕАЛЬНЫЙ ВЫХОДНОЙ IP в РФ (выбросит все каскады)
 
-# Конфиг считается БС, если его SNI / Host / адрес сервера входит в один из этих доменов
-# (включая поддомены). Список белых списков меняется — дополняй под себя.
 WL_DOMAINS = (
     # Яндекс
     "yandex.ru", "yandex.com", "yandex.net", "ya.ru", "yastatic.net",
@@ -127,42 +164,39 @@ WL_DOMAINS = (
     "guardora.pro", "tunnelgate.org", "avroraservice.online", "centermass.net",
 )
 
-SHOW_SNI_STATS = True        # печатать в лог топ SNI каждого источника (видно, что добавить в WL_DOMAINS)
+SHOW_SNI_STATS = True
 
+# слово "white" само по себе больше не считается признаком БС
 WL_NAME_REGEX = re.compile(
-    r"(?<!\w)(бс|белы[йхе]\w*\s*спис\w*|white\s*-?list|whitelist|white)(?!\w)",
+    r"(?<!\w)(бс|белы[йхе]\w*\s*спис\w*|white\s*-?list|whitelist)(?!\w)",
     re.IGNORECASE,
 )
 
 # --- СКОРОСТЬ ПРОВЕРКИ ---
-CONNECT_TIMEOUT = 1.5     # для фолбэк-протоколов (hysteria2/tuic)
+CONNECT_TIMEOUT = 1.5
 FETCH_TIMEOUT = 15.0
 
-TCP_PRECHECK = True             # дешёвая TCP-проверка порта ДО запуска xray: мёртвые серверы отсеиваются за ~секунду
-TCP_PRECHECK_TIMEOUT = 2.5      # сек на TCP-подключение
-TCP_PRECHECK_CONCURRENCY = 300  # TCP-проверок одновременно (это просто сокеты, RAM почти не тратят)
+TCP_PRECHECK = True
+TCP_PRECHECK_TIMEOUT = 2.5
+TCP_PRECHECK_CONCURRENCY = 300
 
-CONCURRENCY = 40          # одновременных xray-процессов (каждый ~20-30 МБ; если раннер падает по RAM — снизь до 25)
-XRAY_STARTUP_MAX = 3.0    # макс. сек ожидания старта xray (порт опрашивается каждые 50 мс, обычно хватает ~0.2 сек)
-XRAY_TEST_TIMEOUT = 6.0   # сек на тест-запрос через прокси
-GEO_TIMEOUT = 3.5         # сек на каждый запрос гео через прокси
-XRAY_BINARY = "xray"      # должен быть в PATH (см. workflow)
+CONCURRENCY = 40          # одновременных xray-процессов (если раннер падает по RAM — снизь до 25)
+XRAY_STARTUP_MAX = 3.0    # при повторной попытке удваивается
+XRAY_TEST_TIMEOUT = 6.0   # сек на ОДИН тест-запрос через прокси
+GEO_TIMEOUT = 3.5
+XRAY_BINARY = "xray"
 TEST_URL = "https://cp.cloudflare.com/generate_204"
 
-# --- реальная проверка выходного IP: гео запрашивается ЧЕРЕЗ сам прокси ---
 GEO_URLS = (
     "https://ipwho.is/",
     "http://ip-api.com/json/?fields=status,countryCode,city,query",
 )
 EXIT_GEO = {}  # config -> (country_code, geo_name, exit_ip)
 
-# --- гео ВХОДА (IP самого сервера), пакетно через ip-api.com ---
-GEO_BATCH_INTERVAL = 4.3   # сек между пакетными запросами (лимит ip-api: 15 в минуту)
+GEO_BATCH_INTERVAL = 4.3
 IP_CC = {}                 # ip сервера -> код страны ("" если не определилась)
+IP_ASN = {}                # ip сервера -> строка ASN ("AS13238 YANDEX LLC")
 
-# --- РЕЗЕРВНЫЕ проверки гео для конфигов, которые не удалось переименовать ---
-# Проверяется IP сервера. Сначала русские сервисы, потом западные.
-# {ip} подставляется автоматически.
 GEO_FALLBACK_RU = (
     ("sypexgeo", "https://api.sypexgeo.net/json/{ip}"),
     ("2ip.me",   "https://api.2ip.me/geo.json?ip={ip}"),
@@ -174,8 +208,8 @@ GEO_FALLBACK_WEST = (
 )
 GEO_FALLBACK_TIMEOUT = 6.0
 
-MAX_PING_MS = 120         # жёсткая отсечка для ПРЯМЫХ — медленнее не берём вообще
-GOOD_PING_MS = 50         # ориентир "хорошего" пинга, используется только в логах
+MAX_PING_MS = 120         # жёсткая отсечка для ПРЯМЫХ в основной части (медленнее — только в резерв)
+GOOD_PING_MS = 50
 
 BASE_LOCAL_PORT = 21000
 
@@ -192,7 +226,6 @@ PROTOCOLS = (
     "tuic://",
 )
 
-# протоколы, для которых умеем строить реальный xray-конфиг
 XRAY_SUPPORTED = ("vless://", "vmess://", "trojan://", "ss://")
 
 
@@ -319,10 +352,10 @@ def extract_lines(raw):
 # ============================================================
 # КЛЮЧ ДЛЯ УДАЛЕНИЯ ДУБЛИКАТОВ
 # Дубль = один и тот же сервер (протокол + хост + порт + uuid/пароль).
-# Название (#...) и мелкие параметры (fp, sni, sid, flow...) на ключ не влияют.
 # ============================================================
 
-_seen_keys = set()  # ключи уже занятых серверов (закреплённые + прошедшие фильтр)
+_seen_keys = set()   # серверы закреплённых конфигов (источники их не дублируют)
+_seen_lines = set()  # точные повторы строк между источниками (до проверки)
 
 
 def dedupe_key(line):
@@ -339,14 +372,21 @@ def dedupe_key(line):
     scheme, _, rest = line.partition("://")
     scheme = scheme.lower()
     if scheme == "hysteria2":
-        scheme = "hy2"  # hy2:// и hysteria2:// — один и тот же протокол
+        scheme = "hy2"
     netloc = re.split(r"[/?#]", rest, maxsplit=1)[0]
     userinfo, _, hostport = netloc.rpartition("@")
     return (scheme, userinfo, hostport.lower())
 
 
+def exact_line_key(line):
+    """Ключ точного повтора: строка без названия (#...)."""
+    if line.startswith("vmess://"):
+        return line
+    return line.split("#", 1)[0]
+
+
 # ============================================================
-# HOST / PORT (для geo и фолбэк-проверки)
+# HOST / PORT
 # ============================================================
 
 def get_host_port(line):
@@ -394,7 +434,6 @@ def first(params, *names):
 # ============================================================
 
 def config_name(line):
-    """Название конфига (то, что после # или поле ps у vmess)."""
     if line.startswith("vmess://"):
         data = b64decode_safe(line[len("vmess://"):])
         try:
@@ -407,7 +446,6 @@ def config_name(line):
 
 
 def config_domains(line):
-    """Все домены, по которым фильтр может опознать конфиг: SNI, Host, адрес сервера."""
     raw = []
     if line.startswith("vmess://"):
         data = b64decode_safe(line[len("vmess://"):])
@@ -436,7 +474,6 @@ def config_domains(line):
 
 
 def is_blocked(line):
-    """True, если конфиг связан с доменом из BLOCKED_DOMAINS (SNI/Host/адрес/текст строки/vmess)."""
     if not BLOCKED_DOMAINS:
         return False
 
@@ -459,7 +496,6 @@ def is_blocked(line):
 
 
 def get_sni(line):
-    """SNI конфига (или Host / адрес сервера, если SNI не задан)."""
     if line.startswith("vmess://"):
         data = b64decode_safe(line[len("vmess://"):])
         try:
@@ -477,7 +513,6 @@ def get_sni(line):
 
 
 def flag_code_from_name(line):
-    """Код страны по первому флагу в исходном названии конфига (или None)."""
     match = FLAG_RE.search(config_name(line))
     if not match:
         return None
@@ -493,7 +528,7 @@ def print_sni_stats(configs):
 
 
 # ============================================================
-# ГЕО ВХОДА (IP сервера): пакетно, с кэшем и соблюдением лимита ip-api
+# ГЕО ВХОДА (IP сервера) + ASN: пакетно, с кэшем и соблюдением лимита ip-api
 # ============================================================
 
 _geo_lock = asyncio.Lock()
@@ -501,7 +536,7 @@ _last_batch = 0.0
 
 
 async def ensure_ip_cc(session, hosts):
-    """Заполняет IP_CC для хостов. Уже известные IP повторно не запрашиваются."""
+    """Заполняет IP_CC и IP_ASN для хостов. Уже известные IP повторно не запрашиваются."""
     global _last_batch
 
     hosts = [h for h in hosts if h]
@@ -524,13 +559,14 @@ async def ensure_ip_cc(session, hosts):
                 try:
                     timeout = aiohttp.ClientTimeout(total=15.0)
                     async with session.post(
-                        "http://ip-api.com/batch?fields=query,countryCode",
+                        "http://ip-api.com/batch?fields=query,countryCode,as",
                         json=chunk, timeout=timeout,
                     ) as response:
                         if response.status == 200:
                             for item in await response.json(content_type=None):
                                 if item.get("query"):
                                     IP_CC[item["query"]] = (item.get("countryCode") or "").upper()
+                                    IP_ASN[item["query"]] = item.get("as") or ""
                             for ip in chunk:
                                 IP_CC.setdefault(ip, "")
                             break
@@ -540,12 +576,6 @@ async def ensure_ip_cc(session, hosts):
                         break
                 except Exception:
                     break
-
-
-async def find_ru_hosts(session, hosts):
-    """Возвращает множество хостов, чей IP по geo находится в РФ."""
-    await ensure_ip_cc(session, hosts)
-    return {h for h in hosts if IP_CC.get(_dns_cache.get(h)) == "RU"}
 
 
 def entry_cc(config):
@@ -559,8 +589,16 @@ def entry_cc(config):
     return IP_CC.get(ip) or None
 
 
+def entry_asn_ok(config):
+    hp = get_host_port(config)
+    if not hp:
+        return False
+    ip = _dns_cache.get(hp[0])
+    asn = (IP_ASN.get(ip) or "").lower() if ip else ""
+    return bool(asn) and any(k in asn for k in ASN_WL_KEYWORDS)
+
+
 def is_cascade(config):
-    """True, если вход (IP сервера) и реальный выход находятся в разных странах (и вход — из CASCADE_ENTRY_COUNTRIES)."""
     if not KEEP_CASCADES:
         return False
     info = EXIT_GEO.get(config)
@@ -589,12 +627,91 @@ def domain_in_whitelist(domain):
 
 
 def is_whitelist_config(line):
-    """True, если конфиг похож на конфиг белых списков (БС)."""
+    """Кандидат в БС по SNI/Host/адресу или по названию (без учёта IP)."""
     if not WHITELIST_ONLY:
         return True
     if WL_TRUST_NAME and WL_NAME_REGEX.search(config_name(line)):
         return True
     return any(domain_in_whitelist(d) for d in config_domains(line))
+
+
+def wl_tier(config):
+    """Уровень доверия «это настоящий БС»: 3 / 2 / 1 / 0 (см. описание настроек)."""
+    if not WHITELIST_ONLY:
+        return 3
+    dom = any(domain_in_whitelist(d) for d in config_domains(config))
+    name = bool(WL_TRUST_NAME and WL_NAME_REGEX.search(config_name(config)))
+    ru = entry_cc(config) == "RU"
+    if ru and (dom or entry_asn_ok(config) or is_cascade(config)):
+        return 3
+    if dom or ru:
+        return 2
+    if name:
+        return 1
+    return 0
+
+
+# ============================================================
+# ИСТОРИЯ СТАБИЛЬНОСТИ (state.json)
+# ============================================================
+
+STATE = {}      # хэш сервера -> [0/1, ...] последние запуски
+RESULTS = {}    # config -> прошёл проверку в этом запуске
+DATA_OK = {}    # config -> прошла ли проверка передачи данных
+SLOW_POOL = []  # (config, latency): рабочие, но медленнее порогов основной части
+SLOW_SET = set()
+
+
+def state_key(config):
+    raw = "|".join(map(str, dedupe_key(config)))
+    return hashlib.md5(raw.encode("utf-8", errors="ignore")).hexdigest()[:12]
+
+
+def load_state():
+    if not STABILITY_ENABLED:
+        return
+    try:
+        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            STATE.update({k: v for k, v in data.items() if isinstance(v, list)})
+            print(f"[i] История стабильности загружена: {len(STATE)} серверов")
+    except Exception:
+        print("[i] История стабильности не найдена — все конфиги считаются новыми")
+
+
+def is_stable(config):
+    if not STABILITY_ENABLED:
+        return True
+    prev = STATE.get(state_key(config), [])[-(STABILITY_RUNS - 1):] if STABILITY_RUNS > 1 else []
+    runs = prev + [1]  # конфиг, дошедший до отбора, в этом запуске прошёл
+    need = min(STABILITY_MIN, len(runs))
+    return sum(runs) >= need
+
+
+def save_state():
+    if not STABILITY_ENABLED or not RESULTS:
+        return
+    by_key = {}
+    for c, ok in RESULTS.items():
+        k = state_key(c)
+        by_key[k] = by_key.get(k, False) or ok
+    new = {k: (STATE.get(k, []) + [1 if ok else 0])[-STABILITY_RUNS:] for k, ok in by_key.items()}
+    try:
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        STATE_FILE.write_text(json.dumps(new, separators=(",", ":")), encoding="utf-8")
+        print(f"[✓] История стабильности сохранена: {len(new)} серверов -> {STATE_FILE}")
+    except Exception as e:
+        print(f"[!] Не удалось сохранить историю: {e}")
+
+
+def eff_tier(config):
+    """Итоговый уровень: tier минус штрафы за провал проверки данных и нестабильность."""
+    t = wl_tier(config)
+    if DATA_CHECK and not DATA_OK.get(config, True):
+        t -= 1
+    if not is_stable(config):
+        t -= 1
+    return max(t, 0)
 
 
 # ============================================================
@@ -790,7 +907,6 @@ def init_port_pool(n):
 # ============================================================
 
 async def fetch_exit_geo(session):
-    """Запрашивает гео через прокси-сессию. Возвращает (country_code, city, exit_ip) или None."""
     timeout = aiohttp.ClientTimeout(total=GEO_TIMEOUT)
     for url in GEO_URLS:
         try:
@@ -807,8 +923,24 @@ async def fetch_exit_geo(session):
     return None
 
 
+async def data_check(session):
+    """True, если через прокси реально скачивается файл (а не только проходит рукопожатие)."""
+    timeout = aiohttp.ClientTimeout(total=DATA_TIMEOUT)
+    for url in DATA_URLS:
+        try:
+            async with session.get(url, ssl=False, timeout=timeout) as r:
+                if r.status != 200:
+                    continue
+                body = await r.read()
+                if len(body) >= DATA_MIN_BYTES:
+                    return True
+        except Exception:
+            continue
+    return False
+
+
 # ============================================================
-# TCP-ПРЕДПРОВЕРКА (до запуска xray) И ОЖИДАНИЕ ПОРТА
+# TCP-ПРЕДПРОВЕРКА И ОЖИДАНИЕ ПОРТА
 # ============================================================
 
 _tcp_sem = asyncio.Semaphore(TCP_PRECHECK_CONCURRENCY)
@@ -832,7 +964,6 @@ async def tcp_check(host, port, timeout=None):
 
 
 async def tcp_precheck(config):
-    """True, если порт сервера отвечает (или проверить нельзя — тогда решает xray)."""
     if _UDP_NET_RE.search(config):
         return True
     hp = get_host_port(config)
@@ -843,7 +974,6 @@ async def tcp_precheck(config):
 
 
 async def wait_port(proc, port, timeout):
-    """Ждёт, пока локальный socks-порт xray начнёт принимать соединения. False — xray упал или не поднялся."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if proc.returncode is not None:
@@ -859,12 +989,13 @@ async def wait_port(proc, port, timeout):
 
 # ============================================================
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY
+# Возвращает (пинг_мс | None, xray_не_успел_стартовать)
 # ============================================================
 
-async def xray_real_check(line):
+async def xray_real_check(line, startup_max):
     outbound = build_outbound(line)
     if not outbound:
-        return None
+        return None, False
 
     port = await _port_pool.get()
     proc = None
@@ -892,34 +1023,52 @@ async def xray_real_check(line):
             stderr=asyncio.subprocess.DEVNULL,
         )
 
-        if not await wait_port(proc, port, XRAY_STARTUP_MAX):
-            return None  # xray упал или не поднялся — конфиг битый
+        if not await wait_port(proc, port, startup_max):
+            # процесс жив, но порт не открылся = просто медленный старт (стоит повторить);
+            # процесс уже завершился = конфиг битый
+            return None, proc.returncode is None
 
         connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
         timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
 
         try:
-            start = time.monotonic()
             async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-                async with session.get(TEST_URL, ssl=False) as resp:
-                    if resp.status not in (200, 204):
-                        return None
-                    await resp.read()
-                latency_ms = (time.monotonic() - start) * 1000
+                # несколько запросов подряд в одной сессии: нужно PROBE_MIN_OK успешных из PROBE_COUNT
+                lats = []
+                fails = 0
+                for _ in range(PROBE_COUNT):
+                    t0 = time.monotonic()
+                    try:
+                        async with session.get(TEST_URL, ssl=False) as resp:
+                            if resp.status in (200, 204):
+                                await resp.read()
+                                lats.append((time.monotonic() - t0) * 1000)
+                            else:
+                                fails += 1
+                    except Exception:
+                        fails += 1
+                    if fails > PROBE_COUNT - PROBE_MIN_OK:
+                        break
 
-                # гео запрашиваем только у тех, кто вообще может пройти по пингу (экономит время)
-                ping_cap = max(MAX_PING_MS, MAX_PING_CASCADE_MS if KEEP_CASCADES else 0)
+                if len(lats) < PROBE_MIN_OK:
+                    return None, False
+
+                latency_ms = statistics.median(lats)
+
+                ping_cap = max(MAX_PING_MS, MAX_PING_CASCADE_MS if KEEP_CASCADES else 0, SLOW_FILL_MAX_PING_MS)
                 if latency_ms <= ping_cap:
                     geo = await fetch_exit_geo(session)
                     if geo:
                         cc, city, exit_ip = geo
                         EXIT_GEO[line] = (cc, make_geo_name(cc, city), exit_ip)
-            return latency_ms
+                    if DATA_CHECK:
+                        DATA_OK[line] = await data_check(session)
+            return latency_ms, False
         except Exception:
-            return None
+            return None, False
 
     except Exception:
-        return None
+        return None, False
 
     finally:
         if proc is not None and proc.returncode is None:
@@ -940,7 +1089,7 @@ async def xray_real_check(line):
 
 
 # ============================================================
-# ФОЛБЭК TCP-ПРОВЕРКА (hysteria2 / tuic / ssr)
+# ФОЛБЭК TCP-ПРОВЕРКА (hysteria2 / tuic / ssr) — только если ONLY_XRAY_PROTOCOLS = False
 # ============================================================
 
 async def fallback_check(line):
@@ -950,22 +1099,24 @@ async def fallback_check(line):
     return await tcp_check(*hp)
 
 
-# ============================================================
-# ОБЩАЯ ПРОВЕРКА КОНФИГА — возвращает пинг в мс или None
-# ============================================================
-
 async def check_config(line):
     if line.startswith(XRAY_SUPPORTED):
-        return await xray_real_check(line)
+        for attempt in range(CHECK_ATTEMPTS):
+            latency, slow_start = await xray_real_check(line, XRAY_STARTUP_MAX * (1 + attempt))
+            if latency is not None:
+                return latency
+            if not slow_start:
+                return None
+            await asyncio.sleep(0.3)
+        return None
     return await fallback_check(line)
 
 
 # ============================================================
-# GEO СЕРВЕРА (фолбэк для протоколов без xray: hysteria/tuic/ssr)
+# GEO СЕРВЕРА (фолбэк для конфигов без выходного гео)
 # ============================================================
 
 async def get_server_geo(session, host):
-    """Возвращает (country_code, geo_name) или (None, None)."""
     try:
         try:
             ip = socket.gethostbyname(host)
@@ -988,20 +1139,15 @@ async def get_server_geo(session, host):
         return None, None
 
 
-# ============================================================
-# РЕЗЕРВНОЕ ГЕО: сначала русские сайты, потом западные
-# ============================================================
-
 def parse_geo_json(data):
-    """Универсальный разбор ответа гео-сервиса -> (country_code, city) или None."""
     if not isinstance(data, dict):
         return None
 
     country = data.get("country")
     code = None
-    if isinstance(country, dict):          # sypexgeo: {"country": {"iso": "RU"}}
+    if isinstance(country, dict):
         code = country.get("iso")
-    elif isinstance(country, str) and len(country) == 2:   # ipinfo.io: {"country": "DE"}
+    elif isinstance(country, str) and len(country) == 2:
         code = country
     code = code or data.get("country_code") or data.get("countryCode")
 
@@ -1009,7 +1155,7 @@ def parse_geo_json(data):
         return None
 
     city = data.get("city")
-    if isinstance(city, dict):             # sypexgeo: {"city": {"name_ru": "..."}}
+    if isinstance(city, dict):
         city = city.get("name_ru") or city.get("name_en")
     if not isinstance(city, str):
         city = None
@@ -1018,7 +1164,7 @@ def parse_geo_json(data):
 
 
 # ============================================================
-# DNS (асинхронно, с кэшем) — нужен для гео входа, фолбэк-гео и удаления дублей по IP
+# DNS (асинхронно, с кэшем)
 # ============================================================
 
 _dns_cache = {}
@@ -1047,10 +1193,6 @@ async def resolve_ip(host):
 
 
 async def fallback_geo(session, host):
-    """
-    Проверка IP сервера через другие сайты: сначала русские, потом западные.
-    Возвращает (country_code, geo_name, источник) или None.
-    """
     ip = await resolve_ip(host)
     if not ip:
         return None
@@ -1103,10 +1245,15 @@ async def process_source(session, url, semaphore):
 
     configs = extract_lines(raw)
 
-    # выбрасываем всё из чёрного списка сразу, до любых проверок
     before_block = len(configs)
     configs = [c for c in configs if not is_blocked(c)]
     blocked_count = before_block - len(configs)
+
+    skipped_proto = 0
+    if ONLY_XRAY_PROTOCOLS:
+        before_proto = len(configs)
+        configs = [c for c in configs if c.startswith(XRAY_SUPPORTED)]
+        skipped_proto = before_proto - len(configs)
 
     total_found = len(configs)
     by_domain = []
@@ -1117,23 +1264,22 @@ async def process_source(session, url, semaphore):
         print(f"[i] SNI источника: {url}")
         print_sni_stats(configs)
 
-    # отсекаем всё, что не относится к белым спискам, ДО проверки (экономит время и RAM)
+    # кандидаты в БС: по SNI/названию и (опционально) по IP в РФ. Строгость решается позже, по tier.
     if WHITELIST_ONLY:
         by_domain = [c for c in configs if is_whitelist_config(c)]
         passed = set(by_domain)
         rest = [c for c in configs if c not in passed]
 
-        if WL_ACCEPT_RU_IP and rest:
-            hosts = set()
-            for c in rest:
-                hp = get_host_port(c)
-                if hp:
-                    hosts.add(hp[0])
-            ru_hosts = await find_ru_hosts(session, hosts)
-            for c in rest:
-                hp = get_host_port(c)
-                if hp and hp[0] in ru_hosts:
-                    by_ru_ip.append(c)
+        geo_src = configs if WL_ACCEPT_RU_IP else by_domain
+        hosts = set()
+        for c in geo_src:
+            hp = get_host_port(c)
+            if hp:
+                hosts.add(hp[0])
+        await ensure_ip_cc(session, hosts)  # нужно и для tier (РФ-вход, ASN)
+
+        if WL_ACCEPT_RU_IP:
+            by_ru_ip = [c for c in rest if entry_cc(c) == "RU"]
 
         configs = by_domain + by_ru_ip
 
@@ -1142,8 +1288,10 @@ async def process_source(session, url, semaphore):
     print(f"    {url}")
     if blocked_count:
         print(f"    выброшено по чёрному списку: {blocked_count}")
+    if skipped_proto:
+        print(f"    пропущено не-xray протоколов (hy2/tuic/ssr): {skipped_proto}")
     if WHITELIST_ONLY:
-        print(f"    найдено: {total_found}, из них белых списков: {len(configs)} "
+        print(f"    найдено: {total_found}, кандидатов в БС: {len(configs)} "
               f"(по SNI/названию: {len(by_domain)}, по IP в РФ: {len(by_ru_ip)})")
     else:
         print(f"    найдено: {total_found}")
@@ -1151,29 +1299,32 @@ async def process_source(session, url, semaphore):
     if not configs:
         return []
 
-    # удаление дубликатов ДО проверки (сервер достаётся первому источнику, где встретился;
-    # закреплённые уже занесены в _seen_keys). Блок синхронный — гонок между источниками нет.
+    # до проверки убираем только ТОЧНЫЕ повторы и серверы закреплённых.
+    # Разные варианты одного сервера (другой SNI/fp) проверяются все — дубли режутся после проверки, по лучшему.
     fresh = []
     for c in configs:
-        k = dedupe_key(c)
-        if k in _seen_keys:
+        if c.startswith(PROTOCOLS) and dedupe_key(c) in _seen_keys:
             continue
-        _seen_keys.add(k)
+        k = exact_line_key(c)
+        if k in _seen_lines:
+            continue
+        _seen_lines.add(k)
         fresh.append(c)
     if len(fresh) != len(configs):
-        print(f"    дубликатов убрано до проверки: {len(configs) - len(fresh)}")
+        print(f"    повторов убрано до проверки: {len(configs) - len(fresh)}")
     configs = fresh
     if not configs:
         return []
 
     async def worker(config):
         try:
-            # дешёвая TCP-проверка: мёртвые серверы не добираются до xray
             if TCP_PRECHECK and config.startswith(XRAY_SUPPORTED):
                 if not await tcp_precheck(config):
+                    RESULTS[config] = False
                     return None
             async with semaphore:
                 latency = await check_config(config)
+                RESULTS[config] = latency is not None
                 if latency is not None:
                     return (config, latency)
         except Exception:
@@ -1181,7 +1332,7 @@ async def process_source(session, url, semaphore):
         return None
 
     tasks = [asyncio.create_task(worker(c)) for c in configs]
-    working = []  # список (config, latency_ms)
+    working = []
 
     try:
         for task in asyncio.as_completed(tasks):
@@ -1192,13 +1343,15 @@ async def process_source(session, url, semaphore):
                 mark = "🔥" if latency <= GOOD_PING_MS else ("👍" if latency <= MAX_PING_MS else "🐌")
                 exit_info = EXIT_GEO.get(config)
                 exit_txt = f", выход {exit_info[2]} {exit_info[1]}" if exit_info else ""
-                print(f"    [✓] {mark} рабочий, пинг {latency:.0f} мс{exit_txt}")
+                data_txt = ""
+                if DATA_CHECK and config in DATA_OK:
+                    data_txt = ", данные ✓" if DATA_OK[config] else ", данные ✗"
+                print(f"    [✓] {mark} рабочий, пинг {latency:.0f} мс{exit_txt}{data_txt}")
     finally:
         for task in tasks:
             if not task.done():
                 task.cancel()
 
-    # узнаём страну входа (IP сервера) у рабочих — по ней отличаем каскады от прямых
     if KEEP_CASCADES and working:
         hosts = set()
         for c, _ in working:
@@ -1210,7 +1363,6 @@ async def process_source(session, url, semaphore):
     direct = [w for w in working if not is_cascade(w[0])]
     cascades = [w for w in working if is_cascade(w[0])]
 
-    # --- прямые: жёсткая отсечка по пингу ---
     fast_enough = [c for c in direct if c[1] <= MAX_PING_MS]
 
     if len(fast_enough) < MIN_PER_SOURCE and len(direct) > len(fast_enough):
@@ -1221,30 +1373,29 @@ async def process_source(session, url, semaphore):
     fast_enough.sort(key=lambda c: c[1])
     best = fast_enough[:MAX_PER_SOURCE]
 
-    # --- каскады: мягкая отсечка по пингу, отдельный лимит ---
     casc_ok = sorted((c for c in cascades if c[1] <= MAX_PING_CASCADE_MS), key=lambda c: c[1])
     best_casc = casc_ok[:MAX_CASCADES_PER_SOURCE]
 
+    # всё рабочее, но не попавшее в основную часть, идёт в «медленный резерв»
+    chosen = {c for c, _ in best} | {c for c, _ in best_casc}
+    slow = [(c, l) for c, l in working if c not in chosen and l <= SLOW_FILL_MAX_PING_MS]
+    SLOW_POOL.extend(slow)
+
     print(f"    [✓] рабочих всего: {len(working)} (прямых {len(direct)}, каскадов {len(cascades)}), "
-          f"отобрано: прямых {len(best)}, каскадов {len(best_casc)}")
+          f"отобрано: прямых {len(best)}, каскадов {len(best_casc)}, в резерв: {len(slow)}")
 
     if len(best) + len(best_casc) < MIN_PER_SOURCE:
         print(f"    [!] Меньше {MIN_PER_SOURCE}")
 
-    return best + best_casc  # список (config, latency)
+    return best + best_casc
 
 
 # ============================================================
 # УДАЛЕНИЕ ДУБЛЕЙ ПО РЕАЛЬНОМУ IP:ПОРТ И ПО ВЫХОДНОМУ IP
-# Разные домены/названия на один и тот же ip:порт — это один сервер.
-# Прямые конфиги с одинаковым выходным IP — тоже дубли (если DEDUPE_BY_EXIT_IP).
-# У каскадов выходной IP не сравнивается: разные входы с одним выходом — разные конфиги.
-# Из группы остаётся самый быстрый.
+# На входе список уже отсортирован «лучшие первыми» — из группы остаётся первый.
 # ============================================================
 
 async def dedupe_by_ip(items, taken=None):
-    """items: [(config, latency)], отсортированный по пингу.
-    taken: множество (ip, port), уже занятых закреплёнными."""
     seen = set(taken or ())
 
     hosts = {get_host_port(c)[0] for c, _ in items if get_host_port(c)}
@@ -1269,15 +1420,51 @@ async def dedupe_by_ip(items, taken=None):
 
 
 # ============================================================
+# ОТБОР: строгая часть + добор до MIN_TOTAL
+# ============================================================
+
+def rank_key(entry):
+    config, latency = entry
+    return (-eff_tier(config), config in SLOW_SET, latency)
+
+
+def select_final(pool):
+    """pool уже отсортирован по rank_key. Возвращает список (config, latency)."""
+    min_tier = STRICT_MIN_TIER if STRICT_WL else 1
+
+    core = [e for e in pool if e[0] not in SLOW_SET and eff_tier(e[0]) >= min_tier]
+    core_ids = {e[0] for e in core}
+    rest = [e for e in pool if e[0] not in core_ids]
+
+    selected = list(core)
+    filled = 0
+    if len(selected) < MIN_TOTAL:
+        need = MIN_TOTAL - len(selected)
+        add = rest[:need]
+        selected += add
+        filled = len(add)
+
+    if MAX_TOTAL:
+        selected = selected[:MAX_TOTAL]
+
+    tiers = Counter(eff_tier(e[0]) for e in selected)
+    print()
+    print(f"[i] Отбор: основная часть (tier >= {min_tier}): {len(core)}, добрано до минимума {MIN_TOTAL}: {filled}, "
+          f"итого: {len(selected)}")
+    print("    по уровням: " + ", ".join(f"tier {t}: {n}" for t, n in sorted(tiers.items(), reverse=True)))
+    slow_used = sum(1 for e in selected if e[0] in SLOW_SET)
+    if slow_used:
+        print(f"    из них медленнее {MAX_PING_MS} мс (резерв): {slow_used}")
+    if len(selected) < MIN_TOTAL:
+        print(f"    [!] Рабочих БС-кандидатов всего {len(selected)} — меньше желаемых {MIN_TOTAL}")
+    return selected
+
+
+# ============================================================
 # РАСПРЕДЕЛЕНИЕ ПО СТРАНАМ
 # ============================================================
 
 def distribute_by_country(entries):
-    """
-    entries: список (config, latency, country_code, geo_name)
-    Возвращает (kept, stats). Прямые и каскады считаются раздельно:
-    MAX_PER_COUNTRY для прямых, MAX_CASCADES_PER_COUNTRY для каскадов. Лучшие по пингу первыми.
-    """
     by_group = defaultdict(list)
     for entry in entries:
         config, _, country_code, _ = entry
@@ -1291,7 +1478,7 @@ def distribute_by_country(entries):
     for key in sorted(by_group, key=lambda k: len(by_group[k]), reverse=True):
         country_code, cascade = key
         group = by_group[key]
-        group.sort(key=lambda e: e[1])  # по латентности, лучшие первые
+        group.sort(key=lambda e: e[1])
 
         limit = MAX_CASCADES_PER_COUNTRY if cascade else MAX_PER_COUNTRY
         apply_limit = limit > 0
@@ -1331,14 +1518,14 @@ def print_country_distribution(stats):
 # ============================================================
 
 async def main():
+    load_state()
     init_port_pool(CONCURRENCY)
     semaphore = asyncio.Semaphore(CONCURRENCY)
 
-    # закреплённые: учитываем сразу, чтобы источники не дублировали их серверы
     pinned = [c.strip() for c in PINNED_CONFIGS if c.strip() and not is_blocked(c)]
     _seen_keys.update(dedupe_key(c) for c in pinned if c.startswith(PROTOCOLS))
 
-    all_entries = []  # (config, latency)
+    all_entries = []
 
     print("[i] Сбор конфигов...")
 
@@ -1352,10 +1539,15 @@ async def main():
             else:
                 print(f"[!] Источник #{index} завершился с ошибкой: {result}")
 
-        # быстрые первыми — их и оставит дедупликация
-        all_entries.sort(key=lambda x: x[1])
+        # основная часть + медленный резерв (резерв нужен только если основной не хватит до MIN_TOTAL)
+        main_ids = {c for c, _ in all_entries}
+        slow_entries = [e for e in SLOW_POOL if e[0] not in main_ids]
+        SLOW_SET.update(c for c, _ in slow_entries)
+        pool = all_entries + slow_entries
 
-        # IP:порт закреплённых тоже считаем занятыми
+        # лучшие первыми: выше tier, не из резерва, ниже пинг — их и оставит дедупликация
+        pool.sort(key=rank_key)
+
         taken = set()
         for c in pinned:
             if not c.startswith(PROTOCOLS):
@@ -1365,25 +1557,26 @@ async def main():
                 ip = await resolve_ip(hp[0])
                 taken.add((ip or hp[0], hp[1]))
 
-        before = len(all_entries)
-        all_entries = await dedupe_by_ip(all_entries, taken)
+        before = len(pool)
+        pool = await dedupe_by_ip(pool, taken)
         print()
-        print(f"[i] Убрал дубли (IP:порт / выходной IP): {before - len(all_entries)} (осталось {len(all_entries)})")
+        print(f"[i] Убрал дубли (IP:порт / выходной IP): {before - len(pool)} (осталось {len(pool)})")
+        print(f"[✓] Уникальных рабочих: {len(pool)} (в основной части: {len(pool) - sum(1 for e in pool if e[0] in SLOW_SET)})")
 
-        print(f"[✓] Уникальных рабочих: {len(all_entries)}")
-
-        if not all_entries:
+        if not pool:
             print("[x] Рабочих конфигов нет.")
             return
+
+        selected = select_final(pool)
 
         print()
         print("[i] Определяем страну и город (реальный выходной IP)...")
 
-        geo_entries = []  # (config, latency, country_code, geo_name)
+        geo_entries = []
         geo_cache = {}
         fallback_cache = {}
 
-        for index, (config, latency) in enumerate(all_entries, 1):
+        for index, (config, latency) in enumerate(selected, 1):
             country_code, geo_name, source = None, None, "выход через прокси"
 
             info = EXIT_GEO.get(config)
@@ -1393,14 +1586,12 @@ async def main():
                 hp = get_host_port(config)
                 host = hp[0] if hp else None
 
-                # 1) по адресу сервера через ip-api.com (hysteria/tuic/ssr или прокси-гео не ответило)
                 if host:
                     if host not in geo_cache:
                         geo_cache[host] = await get_server_geo(session, host)
                     country_code, geo_name = geo_cache[host]
                     source = "ip-api.com"
 
-                # 2) не переименовался -> другие сайты: сначала русские, потом западные
                 if host and not geo_name:
                     if host not in fallback_cache:
                         fallback_cache[host] = await fallback_geo(session, host)
@@ -1408,8 +1599,6 @@ async def main():
                     if result:
                         country_code, geo_name, source = result
 
-                # 3) всё равно не вышло -> берём флаг из начала исходного названия
-                #    и подписываем страну этого флага
                 if not geo_name:
                     flag_code = flag_code_from_name(config)
                     if flag_code:
@@ -1420,7 +1609,7 @@ async def main():
             geo_entries.append((config, latency, country_code, geo_name))
 
             tag = f" {cascade_suffix(config)}" if is_cascade(config) else ""
-            print(f"    [{index}/{len(all_entries)}] {geo_name or '🌐 Неизвестно (имя не менял)'}{tag}"
+            print(f"    [{index}/{len(selected)}] tier {eff_tier(config)} | {geo_name or '🌐 Неизвестно (имя не менял)'}{tag}"
                   f"  <- {source if geo_name else 'нигде не определилась'}")
 
     if WHITELIST_ONLY and WL_ONLY_RU_SERVERS:
@@ -1428,11 +1617,18 @@ async def main():
         geo_entries = [e for e in geo_entries if e[2] == "RU"]
         print(f"[i] Только выход в РФ: {len(geo_entries)} из {before}")
 
-    # --- распределение по странам с ограничениями (прямые и каскады раздельно) ---
     kept_entries, country_stats = distribute_by_country(geo_entries)
+
+    # лимиты по странам не должны опускать подписку ниже MIN_TOTAL — возвращаем лучших из обрезанных
+    if len(kept_entries) < MIN_TOTAL and len(geo_entries) > len(kept_entries):
+        kept_ids = {e[0] for e in kept_entries}
+        extra = [e for e in geo_entries if e[0] not in kept_ids]
+        extra.sort(key=lambda e: (-eff_tier(e[0]), e[1]))
+        kept_entries += extra[:MIN_TOTAL - len(kept_entries)]
+        print(f"[i] Лимиты по странам вернули подписку до {len(kept_entries)} (минимум {MIN_TOTAL})")
+
     print_country_distribution(country_stats)
 
-    # переименовываем конфиги согласно гео (после отбора, чтобы не тратить время зря)
     renamed = []
     cascade_count = 0
     for config, latency, country_code, geo_name in kept_entries:
@@ -1442,14 +1638,12 @@ async def main():
             cascade_count += 1
         renamed.append(rename_config(config, name) if name else config)
 
-    # закреплённые конфиги — без проверки, всегда в начале списка (кроме чёрного списка)
     if pinned:
         print()
         print(f"[i] Добавляю закреплённых конфигов: {len(pinned)} (без проверки)")
 
     final_list = pinned + renamed
 
-    # последняя страховка: ничего из чёрного списка в файл не попадёт
     before_final = len(final_list)
     final_list = [line for line in final_list if not is_blocked(line)]
     if len(final_list) != before_final:
@@ -1457,6 +1651,8 @@ async def main():
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_FILE.write_text("\n".join(final_list) + "\n", encoding="utf-8")
+
+    save_state()
 
     print()
     print("[✓] Готово!")

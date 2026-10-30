@@ -4,7 +4,9 @@ import asyncio
 import aiohttp
 import aiohttp_socks
 import base64
+import ipaddress
 import json
+import re
 import socket
 import statistics
 import tempfile
@@ -31,6 +33,11 @@ SOURCES = [
     "https://gidroksi.fun/black-list",
     # Белые списки:
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLWL_MIX.txt",
+    # --- добавлено для объёма (из скрипта ЧС; ненужное можно удалить) ---
+    "https://raw.githubusercontent.com/ImSketch1337/vless-/refs/heads/main/BLWLservers.txt",
+    "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
+    "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
+    "https://mifa.world/onix",
 ]
 
 
@@ -43,54 +50,61 @@ SOURCES = [
 PINNED_CONFIGS = [
     "#profile-title: PizdukVPN Миксер🤯",
     "#announce: base64: 8J+UpdCi0LXQu9C10LPRgNCw0Lwg0LrQsNC90LDQuzogQFBpem1vZPCfpboK8J+lsNCQ0LLRgtC+0L7QsdC90L7QstC70LXQvdC40LUg0YDQsNC3INCyIDYg0YfQsNGB0L7QsvCfmLE=",
-    "#profile-web-page-url: https://t.me/PizMod",
-    "#support-url: https://t.me/Harachok",
+    "#profile-web-page-url: t.me/PizMod",
+    "#support-url: t.me/Harachok",
     "#profile-update-interval: 8",
     #типо пропуск ок,чисто для меня
 ]
 
 
 # ============================================================
-# НАСТРОЙКИ
+# НАСТРОЙКИ  (режим «МНОГО КОНФИГОВ»: проверки мягкие, отбор широкий)
 # ============================================================
 
-TARGET_COUNT = 130          # сколько конфигов взять в итоге (не считая закреплённых)
-EARLY_STOP_MULT = 3        # остановить xray-проверку, когда найдено TARGET_COUNT * N рабочих
-                           # (из них берутся лучшие по пингу). 0 = проверять все
+TARGET_COUNT = 1500        # сколько конфигов взять в итоге (не считая закреплённых)
+EARLY_STOP_MULT = 0        # 0 = проверять ВСЕ (ранней остановки нет)
 
-MAX_PER_COUNTRY = 15       # максимум конфигов на одну страну (0 = без ограничения)
+MAX_PER_COUNTRY = 0        # 0 = без ограничения на страну
 
-MAX_PING_MS = 3000         # отсечка совсем медленных (РЕАЛЬНЫЙ пинг через прокси)
+MAX_PING_MS = 5000         # отсечка совсем медленных (РЕАЛЬНЫЙ пинг через прокси)
 GOOD_PING_MS = 300         # только для значков в логе
 
 # --- реальный пинг ---
-PING_SAMPLES = 3           # сколько замеров после прогрева; берётся медиана
-                           # (прогревочный запрос с TLS-рукопожатием в пинг не входит)
+PING_SAMPLES = 3           # замеров после прогрева; берётся медиана
 
-# --- реальный выходной IP: гео запрашивается ЧЕРЕЗ сам прокси ---
+# --- реальный выходной IP: гео запрашивается ЧЕРЕЗ сам прокси (город по-русски) ---
 GEO_URLS = (
-    "https://ipwho.is/",
-    "http://ip-api.com/json/?fields=status,countryCode,city,query",
+    "https://ipwho.is/?lang=ru",
+    "http://ip-api.com/json/?fields=status,countryCode,city,query&lang=ru",
 )
 EXIT_GEO = {}              # config -> (country_code, geo_name, exit_ip)
 
-MAX_TCP_PING_MS = 1700     # TCP-пинг выше этого (или нет ответа) — в xray не идёт
-TCP_CONCURRENCY = 200      # одновременных TCP-проверок
+MAX_TCP_PING_MS = 2500     # TCP-пинг выше этого (или нет ответа) — в xray не идёт
+TCP_CONCURRENCY = 300      # одновременных TCP-проверок
 
-FETCH_TIMEOUT = 20.0
+# --- Скачивание подписок ---
+FETCH_TIMEOUT = 25.0
+FETCH_RETRIES = 3
+FETCH_HEADERS_LIST = [     # User-Agent меняется от попытки к попытке
+    {"User-Agent": "v2rayN/6.42"},
+    {"User-Agent": "Happ/7.0.0"},
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64;)"},
+]
 
-CONCURRENCY = 15           # одновременных xray-процессов (осторожно с RAM раннера)
-XRAY_STARTUP_WAIT = 1.2    # сек, дать xray подняться
-XRAY_TEST_TIMEOUT = 12.0   # сек на всю сессию через прокси (прогрев + замеры + гео)
+CONCURRENCY = 40           # одновременных xray-процессов (осторожно с RAM раннера: ~30-50 МБ на процесс)
+XRAY_STARTUP_TIMEOUT = 6.0 # сек: максимум ждём, пока xray откроет локальный порт
+XRAY_TEST_TIMEOUT = 15.0   # сек на всю сессию через прокси (прогрев + замеры + гео)
 XRAY_BINARY = "xray"       # должен быть в PATH (см. workflow)
 TEST_URLS = [
     "https://cp.cloudflare.com/generate_204",
     "https://www.gstatic.com/generate_204",
 ]
 
-GEO_DELAY = 1.4            # ip-api.com бесплатно (только для фолбэка по адресу сервера)
-PROGRESS_EVERY = 50        # как часто писать прогресс xray-проверки (раз в N конфигов)
+PROGRESS_EVERY = 100       # как часто писать прогресс xray-проверки (раз в N конфигов)
 BASE_LOCAL_PORT = 21000
+
+# Каскады: вход и выход в разных странах -> в конце названия «{флаг входа}Каскад»
+DETECT_CASCADE = True
 
 OUTPUT_FILE = Path("output/sub.txt")
 
@@ -105,7 +119,7 @@ XRAY_SUPPORTED = ("vless://", "vmess://", "trojan://", "ss://")
 
 
 # ============================================================
-# НАЗВАНИЯ СТРАН
+# НАЗВАНИЯ СТРАН И ГОРОДОВ
 # ============================================================
 
 COUNTRY_NAMES = {
@@ -128,6 +142,37 @@ COUNTRY_NAMES = {
     "NZ": "Новая Зеландия",
 }
 
+# Длинные названия сокращаем
+COUNTRY_NAMES.update({
+    "GB": "Британия", "UK": "Британия", "KR": "Юж. Корея",
+    "NZ": "Нов. Зеландия", "LI": "Лихтенш.",
+})
+
+# Запасной словарь, если сервис вернул город не по-русски
+CITY_RU = {
+    "Frankfurt am Main": "Франкфурт", "Frankfurt": "Франкфурт", "Amsterdam": "Амстердам",
+    "Helsinki": "Хельсинки", "Falkenstein": "Фалькенштайн", "Nuremberg": "Нюрнберг",
+    "London": "Лондон", "Paris": "Париж", "Warsaw": "Варшава", "Stockholm": "Стокгольм",
+    "Vienna": "Вена", "Prague": "Прага", "Tallinn": "Таллин", "Riga": "Рига",
+    "Vilnius": "Вильнюс", "Moscow": "Москва", "Saint Petersburg": "Санкт-Петербург",
+    "St Petersburg": "Санкт-Петербург", "New York": "Нью-Йорк", "Los Angeles": "Лос-Анджелес",
+    "Tokyo": "Токио", "Istanbul": "Стамбул", "Madrid": "Мадрид", "Milan": "Милан",
+    "Zurich": "Цюрих", "Dublin": "Дублин", "Almaty": "Алматы", "Kyiv": "Киев",
+    "Berlin": "Берлин", "Rome": "Рим", "Oslo": "Осло", "Copenhagen": "Копенгаген",
+    "Brussels": "Брюссель", "Lisbon": "Лиссабон", "Bucharest": "Бухарест",
+    "Sofia": "София", "Budapest": "Будапешт", "Belgrade": "Белград", "Athens": "Афины",
+    "Tbilisi": "Тбилиси", "Yerevan": "Ереван", "Baku": "Баку", "Dubai": "Дубай",
+    "Tel Aviv": "Тель-Авив", "Chicago": "Чикаго", "Miami": "Майами", "Dallas": "Даллас",
+    "Seattle": "Сиэтл", "San Jose": "Сан-Хосе", "Ashburn": "Эшберн", "Toronto": "Торонто",
+    "Montreal": "Монреаль", "Sydney": "Сидней", "Seoul": "Сеул", "Osaka": "Осака",
+    "Mumbai": "Мумбаи", "Sao Paulo": "Сан-Паулу", "Johannesburg": "Йоханнесбург",
+}
+
+_CYRILLIC = re.compile("[А-Яа-яЁё]")
+
+# Серверы за этими CDN не считаем каскадом (страна «входа» там ничего не значит)
+CDN_WORDS = ("cloudflare", "fastly", "akamai", "cloudfront", "gcore", "bunny")
+
 
 # ============================================================
 # BASE64
@@ -146,7 +191,7 @@ def b64decode_safe(value):
 
 
 # ============================================================
-# ФЛАГ / НАЗВАНИЕ СТРАНЫ
+# ФЛАГ / НАЗВАНИЕ СТРАНЫ / ГОРОД
 # ============================================================
 
 def get_country_flag(country_code):
@@ -162,13 +207,24 @@ def get_country_name(country_code):
     return COUNTRY_NAMES.get(country_code.upper(), country_code.upper())
 
 
+def city_ru(city):
+    """Город по-русски: уже русский — как есть, иначе словарь, иначе None."""
+    if not city:
+        return None
+    city = str(city).strip()
+    if not city:
+        return None
+    if _CYRILLIC.search(city):
+        return city
+    return CITY_RU.get(city)
+
+
 def make_geo_name(country_code, city):
     flag = get_country_flag(country_code)
     country = get_country_name(country_code)
-    if city:
-        city = str(city).strip()
-        if city:
-            return f"{flag} {country} — {city}"
+    city = city_ru(city)
+    if city and city != country:
+        return f"{flag} {country} — {city}"
     return f"{flag} {country}"
 
 
@@ -267,6 +323,22 @@ def dedupe_key(line):
 
 
 # ============================================================
+# РАЗБОР host:port (с поддержкой IPv6)
+# ============================================================
+
+def _split_hostport(hostport):
+    """'host:443' -> ('host', '443'); '[::1]:443' -> ('::1', '443')."""
+    hostport = hostport.strip().rstrip("/")
+    if hostport.startswith("["):
+        host, _, rest = hostport[1:].partition("]")
+        return host, rest.lstrip(":")
+    if ":" not in hostport:
+        return hostport, ""
+    host, _, ports = hostport.rpartition(":")
+    return host, ports
+
+
+# ============================================================
 # HOST / PORT
 # ============================================================
 
@@ -283,6 +355,13 @@ def get_host_port(line):
                 return host, port
         except Exception:
             return None
+        return None
+
+    if line.startswith("ss://"):
+        ob = parse_ss(line)
+        if ob:
+            srv = ob["settings"]["servers"][0]
+            return srv["address"], srv["port"]
         return None
 
     try:
@@ -311,12 +390,47 @@ def first(params, *names):
 
 
 # ============================================================
-# ПОСТРОЕНИЕ XRAY-КОНФИГА ИЗ URI
+# DNS (асинхронно, с кэшем) — нужен для определения входа каскада
 # ============================================================
 
-def build_stream_settings(params, default_host):
+_dns_cache = {}
+
+
+async def resolve_ip(host):
+    if host in _dns_cache:
+        return _dns_cache[host]
+    ip = None
+    try:
+        ipaddress.ip_address(host)
+        ip = host
+    except ValueError:
+        try:
+            loop = asyncio.get_running_loop()
+            infos = await asyncio.wait_for(
+                loop.getaddrinfo(host, None, family=socket.AF_INET, type=socket.SOCK_STREAM),
+                timeout=5.0,
+            )
+            if infos:
+                ip = infos[0][4][0]
+        except Exception:
+            ip = None
+    _dns_cache[host] = ip
+    return ip
+
+
+# ============================================================
+# ПОСТРОЕНИЕ XRAY-КОНФИГА ИЗ URI
+# (разбор максимально терпимый — чтобы потерять как можно меньше конфигов)
+# ============================================================
+
+def build_stream_settings(params, default_host, default_security="none"):
     network = (first(params, "type", "network", "net") or "tcp").lower()
-    security = (first(params, "security") or "none").lower()
+    # "raw" = обычный tcp; "splithttp" = старое имя xhttp
+    if network in ("raw", ""):
+        network = "tcp"
+    if network == "splithttp":
+        network = "xhttp"
+    security = (first(params, "security") or default_security).lower()
     stream = {"network": network}
 
     if network == "ws":
@@ -326,7 +440,7 @@ def build_stream_settings(params, default_host):
         }
     elif network == "grpc":
         stream["grpcSettings"] = {
-            "serviceName": first(params, "servicename") or "",
+            "serviceName": unquote(first(params, "servicename") or ""),
         }
     elif network in ("xhttp", "http", "h2"):
         stream["network"] = "xhttp" if network == "xhttp" else "h2"
@@ -338,21 +452,28 @@ def build_stream_settings(params, default_host):
             stream["httpSettings"] = {"path": path, "host": [host]}
 
     if security == "reality":
+        pbk = first(params, "pbk", "publickey")
+        if not pbk:
+            return None  # reality без публичного ключа работать не может
         stream["security"] = "reality"
         stream["realitySettings"] = {
             "serverName": first(params, "sni", "servername") or default_host,
             "fingerprint": first(params, "fp", "fingerprint") or "chrome",
-            "publicKey": first(params, "pbk", "publickey"),
+            "publicKey": pbk,
             "shortId": first(params, "sid", "shortid") or "",
             "spiderX": first(params, "spx") or "",
         }
     elif security == "tls":
-        stream["security"] = "tls"
-        stream["tlsSettings"] = {
+        tls = {
             "serverName": first(params, "sni", "servername") or default_host,
             "allowInsecure": True,
             "fingerprint": first(params, "fp", "fingerprint") or "chrome",
         }
+        alpn = first(params, "alpn")
+        if alpn:
+            tls["alpn"] = [a for a in unquote(alpn).split(",") if a]
+        stream["security"] = "tls"
+        stream["tlsSettings"] = tls
     else:
         stream["security"] = "none"
 
@@ -366,6 +487,9 @@ def parse_vless(line):
         if not (uuid and host and port):
             return None
         params = query_params(parsed)
+        stream = build_stream_settings(params, host)
+        if stream is None:
+            return None
         return {
             "protocol": "vless",
             "settings": {
@@ -379,7 +503,7 @@ def parse_vless(line):
                     }],
                 }]
             },
-            "streamSettings": build_stream_settings(params, host),
+            "streamSettings": stream,
         }
     except Exception:
         return None
@@ -392,32 +516,53 @@ def parse_trojan(line):
         if not (password and host and port):
             return None
         params = query_params(parsed)
+        # у trojan по умолчанию TLS
+        stream = build_stream_settings(params, host, default_security="tls")
+        if stream is None:
+            return None
         return {
             "protocol": "trojan",
-            "settings": {"servers": [{"address": host, "port": port, "password": password}]},
-            "streamSettings": build_stream_settings(params, host),
+            "settings": {"servers": [{"address": host, "port": port, "password": unquote(password)}]},
+            "streamSettings": stream,
         }
     except Exception:
         return None
 
 
 def parse_ss(line):
+    """Shadowsocks. Понимает:
+      ss://BASE64(method:password)@host:port#name        (SIP002)
+      ss://method:password@host:port#name                (без base64, в т.ч. SS-2022)
+      ss://BASE64(method:password@host:port)#name        (старый формат)
+      IPv6-хосты [::1]:port.
+    SS с plugin (obfs/v2ray-plugin) xray не умеет — такие пропускаем."""
     try:
-        body = line[len("ss://"):]
-        userinfo_part, _, rest = body.partition("@")
-        if not rest:
+        body = line[len("ss://"):].split("#", 1)[0]
+        main, _, query = body.partition("?")
+        if "plugin=" in query.lower():
             return None
-        hostport_part = rest.split("#", 1)[0].split("?", 1)[0]
-        host, _, port_s = hostport_part.partition(":")
-        port = int(port_s) if port_s.isdigit() else None
+        main = main.rstrip("/")
+
+        if "@" not in main:
+            decoded = b64decode_safe(unquote(main))
+            if not decoded or "@" not in decoded:
+                return None
+            main = decoded
+
+        userinfo, _, hostport = main.rpartition("@")
+        host, ports = _split_hostport(hostport)
+        port = int(ports) if ports.isdigit() else None
         if not (host and port):
             return None
 
-        decoded = b64decode_safe(unquote(userinfo_part))
-        creds = decoded if (decoded and ":" in decoded) else unquote(userinfo_part)
-        if ":" not in creds:
+        plain = unquote(userinfo)
+        creds = plain if ":" in plain else b64decode_safe(plain)
+        if not creds or ":" not in creds:
             return None
         method, password = creds.split(":", 1)
+        method = method.strip().lower()
+        if not method or not password:
+            return None
 
         return {
             "protocol": "shadowsocks",
@@ -438,6 +583,8 @@ def parse_vmess(line):
             return None
 
         network = str(obj.get("net", "tcp")).lower()
+        if network in ("raw", ""):
+            network = "tcp"
         stream = {"network": network}
 
         if network == "ws":
@@ -446,11 +593,15 @@ def parse_vmess(line):
             stream["grpcSettings"] = {"serviceName": obj.get("path", "")}
 
         if str(obj.get("tls", "")).lower() == "tls":
-            stream["security"] = "tls"
-            stream["tlsSettings"] = {
+            tls = {
                 "serverName": obj.get("sni") or obj.get("host") or host,
                 "allowInsecure": True,
             }
+            alpn = obj.get("alpn")
+            if alpn:
+                tls["alpn"] = [a for a in str(alpn).split(",") if a]
+            stream["security"] = "tls"
+            stream["tlsSettings"] = tls
         else:
             stream["security"] = "none"
 
@@ -541,6 +692,31 @@ async def tcp_filter(candidates):
 
 
 # ============================================================
+# ОЖИДАНИЕ ЛОКАЛЬНОГО ПОРТА XRAY (вместо слепого sleep:
+# быстрее и без ложных «не работает» при высокой нагрузке)
+# ============================================================
+
+async def wait_local_port(proc, port, timeout):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if proc.returncode is not None:
+            return False  # xray упал — конфиг битый
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection("127.0.0.1", port), timeout=0.5
+            )
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+            return True
+        except Exception:
+            await asyncio.sleep(0.1)
+    return False
+
+
+# ============================================================
 # РЕАЛЬНЫЙ ВЫХОДНОЙ IP: гео через сам прокси
 # ============================================================
 
@@ -569,6 +745,7 @@ async def fetch_exit_geo(session):
 #   2) PING_SAMPLES замеров по уже открытому соединению;
 #   3) берётся медиана — единичные всплески не портят результат.
 # Затем через ту же сессию определяется реальный выходной IP и страна.
+# Проверка мягкая (как и раньше): хватает одного рабочего тестового URL.
 # ============================================================
 
 async def xray_real_check(line):
@@ -602,10 +779,8 @@ async def xray_real_check(line):
             stderr=asyncio.subprocess.DEVNULL,
         )
 
-        await asyncio.sleep(XRAY_STARTUP_WAIT)
-
-        if proc.returncode is not None:
-            return None  # xray сразу упал — конфиг битый
+        if not await wait_local_port(proc, port, XRAY_STARTUP_TIMEOUT):
+            return None
 
         connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
         timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
@@ -640,7 +815,7 @@ async def xray_real_check(line):
                     geo = await fetch_exit_geo(session)
                     if geo:
                         cc, city, exit_ip = geo
-                        EXIT_GEO[line] = (cc, make_geo_name(cc, city), exit_ip)
+                        EXIT_GEO[line] = (cc.upper(), make_geo_name(cc, city), exit_ip)
 
                     return statistics.median(samples)
                 except Exception:
@@ -658,6 +833,7 @@ async def xray_real_check(line):
             except Exception:
                 try:
                     proc.kill()
+                    await proc.wait()
                 except Exception:
                     pass
         if tmp_path:
@@ -669,39 +845,46 @@ async def xray_real_check(line):
 
 
 # ============================================================
-# GEO СЕРВЕРА (фолбэк, если гео через прокси не ответило)
+# ГЕО ВХОДА (сервера из конфига) — пачками по 100 IP через ip-api.com/batch
+# Нужно для каскадов и как запасная страна, если гео через прокси не ответило.
+# Бесплатный лимит ~15 запросов/мин -> пауза между пачками.
 # ============================================================
 
-async def get_server_geo(session, host):
-    """Возвращает (country_code, geo_name) или (None, None)."""
-    try:
-        try:
-            ip = socket.gethostbyname(host)
-        except Exception:
-            ip = host
-
-        url = f"http://ip-api.com/json/{ip}?fields=status,countryCode,city"
-        timeout = aiohttp.ClientTimeout(total=8.0)
-
-        for _ in range(2):
-            async with session.get(url, timeout=timeout) as response:
-                if response.status == 429:  # лимит — ждём и пробуем ещё раз
-                    await asyncio.sleep(5)
-                    continue
-                if response.status != 200:
-                    return None, None
-                data = await response.json(content_type=None)
-                if data.get("status") != "success":
-                    return None, None
-                country_code = data.get("countryCode")
-                return country_code, make_geo_name(country_code, data.get("city"))
-        return None, None
-    except Exception:
-        return None, None
+async def entry_geo_batch(session, ips):
+    """ip -> (country_code, 'org as' в нижнем регистре)."""
+    result = {}
+    ips = sorted(set(ips))
+    for i in range(0, len(ips), 100):
+        chunk = ips[i:i + 100]
+        for _ in range(3):
+            try:
+                async with session.post(
+                    "http://ip-api.com/batch?fields=status,query,countryCode,org,as",
+                    json=chunk,
+                    timeout=aiohttp.ClientTimeout(total=20),
+                ) as r:
+                    if r.status == 429:
+                        await asyncio.sleep(12)
+                        continue
+                    if r.status != 200:
+                        break
+                    data = await r.json(content_type=None)
+                for d in data:
+                    if d.get("status") == "success" and d.get("countryCode"):
+                        result[d["query"]] = (
+                            d["countryCode"].upper(),
+                            f'{d.get("org", "")} {d.get("as", "")}'.lower(),
+                        )
+                break
+            except Exception:
+                await asyncio.sleep(3)
+        await asyncio.sleep(4.5)
+    return result
 
 
 # ============================================================
-# СКАЧИВАНИЕ ПОДПИСОК
+# СКАЧИВАНИЕ ПОДПИСОК (с повторами, разными User-Agent и запасным
+# вариантом без проверки SSL на последней попытке)
 # ============================================================
 
 def short_name(url):
@@ -711,14 +894,22 @@ def short_name(url):
 
 
 async def fetch(session, url):
-    try:
-        timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT)
-        async with session.get(url, timeout=timeout, allow_redirects=True) as response:
-            response.raise_for_status()
-            return await response.text(errors="ignore")
-    except Exception as e:
-        print(f"[!] {short_name(url)}: {str(e)[:60]}")
-        return None
+    timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT)
+    last_err = None
+    for attempt in range(FETCH_RETRIES):
+        headers = FETCH_HEADERS_LIST[attempt % len(FETCH_HEADERS_LIST)]
+        ssl_opt = False if attempt == FETCH_RETRIES - 1 else None
+        try:
+            async with session.get(url, headers=headers, timeout=timeout,
+                                   allow_redirects=True, ssl=ssl_opt) as response:
+                response.raise_for_status()
+                return await response.text(errors="ignore")
+        except Exception as e:
+            last_err = e
+            await asyncio.sleep(1.5)
+    err = str(last_err) or type(last_err).__name__
+    print(f"[!] {short_name(url)}: {err[:60]}")
+    return None
 
 
 async def fetch_source(session, url):
@@ -860,30 +1051,44 @@ async def main():
             print("[x] Рабочих конфигов нет.")
             return
 
-        # ---------- 4. отбор лучших по реальному пингу + лимит на страну ----------
+        # ---------- 4. отбор по реальному пингу (+ необязательный лимит на страну) ----------
         working.sort(key=lambda x: x[1])
+        selected = working if not TARGET_COUNT else working[:TARGET_COUNT * 2]
 
-        print("\n[i] Определяю страны (по реальному выходному IP) и отбираю лучшие...")
-        geo_cache = {}
+        # гео ВХОДА: нужно для каскадов и как запасная страна
+        entry_ip = {}   # config -> ip сервера из конфига
+        need_entry = [c for c, _ in selected if DETECT_CASCADE or c not in EXIT_GEO]
+        hosts = {get_host_port(c)[0] for c in need_entry if get_host_port(c)}
+        await asyncio.gather(*(resolve_ip(h) for h in hosts))
+        for c in need_entry:
+            hp = get_host_port(c)
+            if hp and _dns_cache.get(hp[0]):
+                entry_ip[c] = _dns_cache[hp[0]]
+
+        entry_geo = {}
+        if entry_ip:
+            print(f"\n[i] Гео входа (для каскадов): {len(set(entry_ip.values()))} IP...")
+            entry_geo = await entry_geo_batch(session, entry_ip.values())
+
+        print("\n[i] Определяю страны (по реальному выходному IP) и отбираю...")
         per_country = defaultdict(int)
-        items = []  # (country_key, latency, renamed_line)
+        items = []      # (country_key, latency, renamed_line)
+        cascades = 0
 
-        for config, latency in working:
-            if len(items) >= TARGET_COUNT:
+        for config, latency in selected:
+            if TARGET_COUNT and len(items) >= TARGET_COUNT:
                 break
 
             info = EXIT_GEO.get(config)
+            exit_ip = None
             if info:
-                code, name, _ = info
-            else:  # гео через прокси не ответило — по адресу сервера
-                code, name = None, None
-                hp = get_host_port(config)
-                if hp:
-                    host = hp[0]
-                    if host not in geo_cache:
-                        geo_cache[host] = await get_server_geo(session, host)
-                        await asyncio.sleep(GEO_DELAY)
-                    code, name = geo_cache[host]
+                code, name, exit_ip = info
+            else:  # гео через прокси не ответило — по стране входа
+                code = None
+                eg = entry_geo.get(entry_ip.get(config))
+                if eg:
+                    code = eg[0]
+                name = make_geo_name(code, None) if code else None
 
             limit_key = code or "??"
             if MAX_PER_COUNTRY and per_country[limit_key] >= MAX_PER_COUNTRY:
@@ -891,13 +1096,23 @@ async def main():
             per_country[limit_key] += 1
 
             final_name = name or "🌐 Неизвестно"
+
+            # каскад: страна входа ≠ страна выхода (и вход не за CDN)
+            if DETECT_CASCADE and info:
+                ip = entry_ip.get(config)
+                eg = entry_geo.get(ip)
+                if eg and ip != exit_ip and eg[0] != code \
+                        and not any(w in eg[1] for w in CDN_WORDS):
+                    final_name += f" {get_country_flag(eg[0])}Каскад"
+                    cascades += 1
+
             country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
             items.append((country_key, latency, rename_config(config, final_name)))
 
-            if len(items) % 10 == 0:
-                print(f"    отобрано {len(items)}/{TARGET_COUNT}")
+            if len(items) % 100 == 0:
+                print(f"    отобрано {len(items)}/{TARGET_COUNT or '∞'}")
 
-        print(f"[i] Отобрано: {len(items)} (стран: {len(per_country)})")
+        print(f"[i] Отобрано: {len(items)} (стран: {len(per_country)}, каскадов: {cascades})")
 
         # группируем по стране, внутри страны — по пингу
         items.sort(key=lambda x: (x[0], x[1]))
@@ -917,7 +1132,7 @@ async def main():
     for code, n in sorted(per_country.items(), key=lambda kv: kv[1], reverse=True):
         flag = get_country_flag(code) if code != "??" else "🌐"
         name = get_country_name(code) if code != "??" else "Неизвестно"
-        print(f"    {flag} {name:<20} {n:>3}")
+        print(f"    {flag} {name:<20} {n:>4}")
 
     # ---------- 6. где больше всего нерабочих ----------
     rows = [(url, tested, bad) for url, (tested, bad) in stats.items() if url and tested]

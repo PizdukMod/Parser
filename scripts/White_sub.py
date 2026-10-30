@@ -23,6 +23,7 @@ from collections import defaultdict, Counter
 # ============================================================
 
 SOURCES = [
+    "https://freevpnhappcluchi.duckdns.org/sub/lzjrpfi55soz18q9",
     "https://gitverse.ru/api/repos/SlavaKat/FreeProxyNova/raw/branch/master/🆓ProxyNova ❯ 🗽🕊✊ Ручной выбор Обход БС (Тест)",
     "https://gitverse.ru/api/repos/gidro/white/raw/branch/master/subscription.txt",
     "https://raw.githubusercontent.com/btsk161/Freeinternet_byMygalaru.github.io/refs/heads/main/premium.txt",

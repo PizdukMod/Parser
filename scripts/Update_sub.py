@@ -4,16 +4,19 @@ import asyncio
 import aiohttp
 import aiohttp_socks
 import base64
+import datetime
 import ipaddress
 import json
 import re
 import shutil
 import socket
+import statistics
 import tempfile
 import os
 import itertools
 import time
 
+from collections import Counter
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -95,10 +98,14 @@ EARLY_STOP_MULT = 3        # остановить проверку, когда �
                            # (из них берутся лучшие по пингу). 0 = проверять все
 
 MAX_PING_MS = 3000         # отсечка совсем медленных (итоговый балл: пинг + вклад скорости)
-GOOD_PING_MS = 300         # только для значков в логе
+GOOD_PING_MS = 300         # «быстрый» сервер (🎃 в названии); ≤3× — 👻, дальше — 🦇
 
 MAX_TCP_PING_MS = 1700     # TCP-пинг выше этого (или нет ответа) — в xray не идёт
 TCP_CONCURRENCY = 200      # одновременных TCP-проверок
+
+# --- Хеллоуин ---
+# True — всегда, False — никогда, "auto" — только с 25 октября по 2 ноября
+HALLOWEEN = "auto"
 
 # --- Скачивание подписок ---
 FETCH_TIMEOUT = 20.0
@@ -132,6 +139,7 @@ IDLE_PAUSE = 2.0            # пауза перед повторным запр�
 BURST_PARALLEL = 8          # параллельных запросов на новых соединениях
 BURST_MAX_FAILS = 0         # сколько из них можно провалить
 
+# --- Скачивание ---
 DOWNLOAD_URLS = [           # достаточно, чтобы прошёл ХОТЯ БЫ ОДИН
     "https://speed.cloudflare.com/__down?bytes=1000000",
     "https://proof.ovh.net/files/1Mb.dat",
@@ -140,7 +148,14 @@ DOWNLOAD_BYTES = 1_000_000
 DOWNLOAD_TIMEOUT = 15.0
 REQUIRE_DOWNLOAD = True     # False — если раннер не достаёт до DOWNLOAD_URLS
 DOWNLOAD_MAX_MS = 7000      # 1 МБ дольше этого — слишком медленно
-SPEED_WEIGHT = 0.1          # вклад времени загрузки в итоговый балл (ниже = лучше)
+SPEED_WEIGHT = 0.1          # вклад времени загрузки/отдачи в итоговый балл (ниже = лучше)
+
+# --- Отдача (upload): ловит «полусломанные» туннели, где вниз идёт, а вверх нет ---
+UPLOAD_URL = "https://speed.cloudflare.com/__up"
+UPLOAD_BYTES = 256 * 1024
+UPLOAD_TIMEOUT = 15.0
+UPLOAD_MAX_MS = 6000
+REQUIRE_UPLOAD = True       # False — если раннер не достаёт до UPLOAD_URL
 
 # --- Доступ к заблокированным сайтам (главное для ЧС-подписки) ---
 BLOCKED_URLS = [
@@ -152,6 +167,15 @@ MIN_BLOCKED_OK = 2          # сколько из BLOCKED_URLS должны от
 
 # --- Стабильность ---
 MAX_JITTER = 2.5            # макс/мин пинг в тёплых раундах (+100 мс запаса)
+REQUIRE_STABLE_EXIT_IP = True   # выходной IP не должен «плавать» между запросами
+
+# --- Cloudflare trace: выходной IP + страна ПРЯМО через прокси (без лимитов гео-сервисов) ---
+USE_CF_TRACE = True
+CF_TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
+
+# Выходы в этих странах отбрасываются (для ЧС-подписки выход в РФ обычно бесполезен).
+# Пример: {"RU", "BY"}. Пусто = не фильтровать. Закреплённых это не касается.
+EXCLUDE_EXIT_COUNTRIES = set()
 
 # --- Реальная проверка выходного IP ---
 # Через каждый прокси спрашиваем у IP-эхо сервиса, какой у нас IP.
@@ -189,6 +213,8 @@ HY2_SCHEMES = ("hy2://", "hysteria2://")
 # Наш реальный IP (без прокси) и выходные IP конфигов
 _my_ip = None
 _exit_ip = {}               # config -> выходной IP
+_trace_loc = {}             # config -> страна выхода по Cloudflare trace
+_fail = Counter()           # причина отказа -> сколько конфигов
 
 
 # ============================================================
@@ -243,6 +269,51 @@ CITY_RU = {
 
 # Серверы за этими CDN не считаем каскадом (страна «входа» там ничего не значит)
 CDN_WORDS = ("cloudflare", "fastly", "akamai", "cloudfront", "gcore", "bunny")
+
+
+# ============================================================
+# ХЕЛЛОУИН
+# Имя конфига: «{флаг} Страна — Город {тег} [{флаг входа}Каскад]»
+# Флаг остаётся первым (клиенты берут из него значок), тег скорости — в конце:
+#   🎃 быстрый (≤ GOOD_PING_MS), 👻 нормальный (≤ 3×), 🦇 медленный.
+# Каскад по-прежнему заканчивает название.
+# ============================================================
+
+HALLOWEEN_ANNOUNCE = "🎃 Телеграм канал: @PizMod 👻\n🦇Автообновление каждые 6 часов🕷"
+
+
+def halloween_on():
+    if HALLOWEEN is True:
+        return True
+    if HALLOWEEN is False:
+        return False
+    t = datetime.date.today()
+    return (t.month == 10 and t.day >= 25) or (t.month == 11 and t.day <= 2)
+
+
+def spooky_tag(score):
+    if score <= GOOD_PING_MS:
+        return "🎃"
+    if score <= GOOD_PING_MS * 3:
+        return "👻"
+    return "🦇"
+
+
+def halloween_header(lines):
+    """Подменяет заголовок подписки (название и анонс) на хеллоуинские."""
+    out = []
+    for line in lines:
+        if line.startswith("#profile-title:"):
+            title = line.replace("🏴", "🎃")
+            if "🎃" not in title:
+                title = title.rstrip() + "🎃"
+            out.append(title)
+        elif line.startswith("#announce:"):
+            enc = base64.b64encode(HALLOWEEN_ANNOUNCE.encode("utf-8")).decode("ascii")
+            out.append(f"#announce: base64: {enc}")
+        else:
+            out.append(line)
+    return out
 
 
 # ============================================================
@@ -963,6 +1034,34 @@ async def fetch_ip(session, timeout=8.0):
     return None
 
 
+async def fetch_trace(session, timeout=8.0):
+    """Cloudflare trace через прокси: возвращает (ip, страна) или None."""
+    try:
+        t = aiohttp.ClientTimeout(total=timeout)
+        async with session.get(CF_TRACE_URL, timeout=t) as resp:
+            if resp.status != 200:
+                return None
+            text = await resp.text()
+        d = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+        ip = (d.get("ip") or "").strip()
+        ipaddress.ip_address(ip)
+        loc = (d.get("loc") or "").strip().upper()
+        if not (len(loc) == 2 and loc.isalpha()) or loc == "XX":
+            loc = ""
+        return ip, loc
+    except Exception:
+        return None
+
+
+def _same_family_diff(a, b):
+    """True, если оба — IP одной версии (v4/v6) и они РАЗНЫЕ."""
+    try:
+        ia, ib = ipaddress.ip_address(a), ipaddress.ip_address(b)
+    except Exception:
+        return False
+    return ia.version == ib.version and ia != ib
+
+
 # ============================================================
 # ОДИН ТЕСТОВЫЙ ЗАПРОС: бросает исключение при любой ошибке
 # (статус не из ok_status, обрыв, тайм-аут, слишком короткое тело)
@@ -976,23 +1075,32 @@ async def _fetch_ok(session, url, min_bytes=0, timeout=None, ok_status=(200, 204
         if resp.status not in ok_status:
             raise ValueError(f"status {resp.status}")
         body = await resp.read()
+    if resp.status == 204 and body:
+        raise ValueError("204 с телом (подмена ответа)")
     if len(body) < min_bytes:
         raise ValueError("short body")
     return (time.monotonic() - start) * 1000
 
 
+def _reject(reason):
+    """Фиксирует причину отказа (для сводки в конце) и возвращает None."""
+    _fail[reason] += 1
+    return None
+
+
 # ============================================================
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ ЯДРО (xray / sing-box) — возвращает балл (мс) или None
-# Строго: все тестовые URL должны ответить во всех раундах,
-# HTTPS-сертификаты проверяются (подменённый/«дырявый» прокси не проходит).
-# Дальше:
-#   1) пауза и повторный запрос по тому же соединению (keep-alive);
-#   2) реальный выходной IP: определяется и не совпадает с нашим;
-#   3) доступ к заблокированным сайтам (YouTube / Instagram / Telegram);
-#   4) параллельный залп на новых соединениях;
-#   5) скачивание ~1 МБ (обрывы, слишком медленные);
-#   6) разброс пинга (отсев «прыгающих» серверов).
-# Итоговый балл = средний пинг в тёплых раундах + вклад времени загрузки.
+# Порядок: от дешёвых проверок к дорогим (быстрее отсев).
+#   1) все тестовые URL во всех раундах, HTTPS-сертификаты проверяются;
+#      ответ 204 должен быть пустым (иначе подмена);
+#   2) пауза и повтор по тому же соединению (keep-alive);
+#   3) выходной IP определён, не равен нашему; Cloudflare trace подтверждает
+#      тот же IP (и даёт страну выхода) — «плавающий» выход отсеивается;
+#   4) доступ к заблокированным сайтам (YouTube / Instagram / Telegram);
+#   5) параллельный залп на новых соединениях;
+#   6) скачивание ~1 МБ и отдача (upload) — обрывы и «полусломанные» туннели;
+#   7) выходной IP не изменился к концу проверки; разброс пинга небольшой.
+# Балл = медиана пинга в тёплых раундах + вклад времени загрузки и отдачи.
 # Одинаково для vless / vmess / trojan / ss / hy2.
 # ============================================================
 
@@ -1001,22 +1109,42 @@ async def _probe(line, port):
     timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
 
     latencies = []
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        for rnd in range(CHECK_ROUNDS):
+    exit_ip = None
+    try:
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            for rnd in range(CHECK_ROUNDS):
+                for url in TEST_URLS:
+                    ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
+                    if rnd > 0:                          # первый раунд «холодный» — не считаем
+                        latencies.append(ms)
+
+            # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
+            await asyncio.sleep(IDLE_PAUSE)
             for url in TEST_URLS:
-                ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
-                if rnd > 0:                          # первый раунд «холодный» — не считаем
-                    latencies.append(ms)
+                await _fetch_ok(session, url)
+    except Exception:
+        return _reject("тестовые URL / keep-alive")
 
-        # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
-        await asyncio.sleep(IDLE_PAUSE)
-        for url in TEST_URLS:
-            await _fetch_ok(session, url)
-
+    # со второй сессии — всё остальное (первая закрыта, соединения свежие)
+    connector_b = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+    async with aiohttp.ClientSession(connector=connector_b, timeout=timeout) as session:
         # реальная проверка выходного IP
         exit_ip = await fetch_ip(session, XRAY_TEST_TIMEOUT)
         if REQUIRE_EXIT_IP and (not exit_ip or (_my_ip and exit_ip == _my_ip)):
-            return None
+            return _reject("нет выходного IP / совпал с моим")
+
+        # Cloudflare trace: подтверждение IP + страна выхода
+        if USE_CF_TRACE:
+            tr = await fetch_trace(session, XRAY_TEST_TIMEOUT)
+            if tr:
+                t_ip, t_loc = tr
+                if REQUIRE_STABLE_EXIT_IP and exit_ip and _same_family_diff(exit_ip, t_ip):
+                    return _reject("выходной IP «плавает»")
+                exit_ip = exit_ip or t_ip
+                if t_loc:
+                    _trace_loc[line] = t_loc
+                    if t_loc in EXCLUDE_EXIT_COUNTRIES:
+                        return _reject("выход в исключённой стране")
         if exit_ip:
             _exit_ip[line] = exit_ip
 
@@ -1028,10 +1156,11 @@ async def _probe(line, port):
                 return_exceptions=True,
             )
             if sum(not isinstance(r, Exception) for r in res_b) < MIN_BLOCKED_OK:
-                return None
+                return _reject("заблокированные сайты недоступны")
 
-    # параллельный залп на НОВЫХ соединениях + загрузка файла
+    # параллельный залп на НОВЫХ соединениях + загрузка и отдача
     dl_ms = None
+    up_ms = None
     conn2 = aiohttp_socks.ProxyConnector.from_url(
         f"socks5://127.0.0.1:{port}", force_close=True
     )
@@ -1040,7 +1169,7 @@ async def _probe(line, port):
         res = await asyncio.gather(*(_fetch_ok(s2, u) for u in urls),
                                    return_exceptions=True)
         if sum(isinstance(r, Exception) for r in res) > BURST_MAX_FAILS:
-            return None
+            return _reject("параллельные запросы (залп)")
 
         if DOWNLOAD_URLS:
             for url in DOWNLOAD_URLS:
@@ -1049,29 +1178,53 @@ async def _probe(line, port):
                     break
                 except Exception:
                     continue
-            if REQUIRE_DOWNLOAD and (dl_ms is None or dl_ms > DOWNLOAD_MAX_MS):
-                return None
+            if REQUIRE_DOWNLOAD and dl_ms is None:
+                return _reject("скачивание не прошло")
+            if REQUIRE_DOWNLOAD and dl_ms > DOWNLOAD_MAX_MS:
+                return _reject("слишком медленная загрузка")
+
+        if UPLOAD_URL:
+            try:
+                start = time.monotonic()
+                async with s2.post(
+                    UPLOAD_URL, data=b"0" * UPLOAD_BYTES,
+                    timeout=aiohttp.ClientTimeout(total=UPLOAD_TIMEOUT),
+                ) as r:
+                    await r.read()
+                    if r.status in (200, 204):
+                        up_ms = (time.monotonic() - start) * 1000
+            except Exception:
+                up_ms = None
+            if REQUIRE_UPLOAD and (up_ms is None or up_ms > UPLOAD_MAX_MS):
+                return _reject("отдача (upload) не прошла / медленная")
+
+        # выходной IP не должен измениться к концу проверки
+        if REQUIRE_STABLE_EXIT_IP and exit_ip:
+            ip2 = await fetch_ip(s2, XRAY_TEST_TIMEOUT)
+            if ip2 and _same_family_diff(exit_ip, ip2):
+                return _reject("выходной IP «плавает»")
 
     if not latencies:
-        return None
+        return _reject("нет замеров пинга")
     if max(latencies) > MAX_JITTER * min(latencies) + 100:
-        return None  # слишком большой разброс пинга
-    return sum(latencies) / len(latencies) + (dl_ms or 0) * SPEED_WEIGHT
+        return _reject("нестабильный пинг (джиттер)")
+    return statistics.median(latencies) + ((dl_ms or 0) + (up_ms or 0)) * SPEED_WEIGHT
 
 
 async def real_check(line):
     try:
         async with running_core(line) as port:
             if port is None:
-                return None
+                return _reject("ядро не запустилось / конфиг не разобран")
             return await _probe(line, port)
     except Exception:
-        return None
+        return _reject("прочая ошибка")
 
 
 # ============================================================
 # GEO: консенсус нескольких сервисов
 # ip="" -> сначала узнаём выходной IP через прокси, затем страну по нему
+# extra_code — страна по Cloudflare trace (даётся как самый приоритетный голос).
 # Город берём по-русски: сервисы с lang=ru / name_ru, иначе словарь CITY_RU,
 # иначе город не пишем.
 # ============================================================
@@ -1149,7 +1302,7 @@ def pick_city_ru(cities):
     return None
 
 
-async def geo_lookup(session, ip=""):
+async def geo_lookup(session, ip="", extra_code=None):
     """Страна по КОНСЕНСУСУ нескольких сервисов. Возвращает (code, geo_name)."""
     # через прокси сначала узнаём реальный выходной IP, потом спрашиваем про него
     if not ip:
@@ -1166,6 +1319,8 @@ async def geo_lookup(session, ip=""):
     for idx, code, city in results:
         if code:
             votes.setdefault(code, []).append((idx, city))
+    if extra_code:
+        votes.setdefault(extra_code.upper(), []).append((-1, None))  # голос Cloudflare trace
     if not votes:
         return None, None
 
@@ -1196,7 +1351,7 @@ async def exit_geo(line):
                 return None, None
             connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
             async with aiohttp.ClientSession(connector=connector) as s:
-                return await geo_lookup(s)
+                return await geo_lookup(s, extra_code=_trace_loc.get(line))
     except Exception:
         return None, None
 
@@ -1300,6 +1455,8 @@ async def check_all(candidates):
                     print(f"    проверено {done}/{total} ✓{len(working)} — хватит, стоп")
                     return
             else:
+                if latency is not None:
+                    _reject("итоговый балл выше MAX_PING_MS")
                 failed.append(config)
             if done % PROGRESS_EVERY == 0:
                 print(f"    проверено {done}/{total} ✓{len(working)}")
@@ -1385,6 +1542,10 @@ async def main():
     global _my_ip
 
     init_port_pool(CONCURRENCY)
+
+    spooky = halloween_on()
+    if spooky:
+        print("[i] 🎃 Хеллоуин-режим: названия с тегами скорости")
 
     hy2_enabled = CHECK_HY2 and shutil.which(SINGBOX_BINARY) is not None
     if CHECK_HY2 and not hy2_enabled:
@@ -1476,7 +1637,7 @@ async def main():
             print("[x] Ни один сервер не ответил по TCP.")
             return
 
-        # ---------- 3.1 реальная проверка (+ выходной IP, заблокированные сайты, скорость) ----------
+        # ---------- 3.1 реальная проверка ----------
         print(f"\n[i] Реальная проверка: {len(candidates)} "
               f"(xray: {len(tcp_ok)}, hy2: {len(hy2_cands)})...")
         working, failed = await check_all(candidates)
@@ -1489,6 +1650,10 @@ async def main():
 
         if not working:
             print("[x] Рабочих конфигов нет.")
+            if _fail:
+                print("\n[i] Причины отказов:")
+                for reason, n in _fail.most_common():
+                    print(f"    {n:>5}  {reason}")
             return
 
         # ---------- 4. лучшие по баллу, без дублей, с повторной проверкой ----------
@@ -1529,10 +1694,11 @@ async def main():
             nonlocal geo_done
             async with geo_sem:
                 code, name = None, None
+                trace = _trace_loc.get(config)
                 # 1) гео по уже известному выходному IP (без запуска ядра)
                 exit_ip = _exit_ip.get(config)
                 if exit_ip:
-                    code, name = await geo_lookup(session, exit_ip)
+                    code, name = await geo_lookup(session, exit_ip, extra_code=trace)
                 # 2) через ядро, если выходной IP неизвестен/не определился
                 if not code:
                     code, name = await exit_geo(config)
@@ -1542,7 +1708,10 @@ async def main():
                     if hp:
                         ip = await resolve_ip(hp[0])
                         code, name = await get_server_geo(session, ip)
-                # 4) каскад: страна входа отличается от страны выхода
+                # 4) если сервисы не договорились, но Cloudflare знает страну — берём её
+                if not code and trace:
+                    code, name = trace, make_geo_name(trace, None)
+                # 5) каскад: страна входа отличается от страны выхода
                 casc = None
                 try:
                     casc = await detect_cascade(session, config, exit_ip, code)
@@ -1559,6 +1728,8 @@ async def main():
         items = []  # (country_name, latency, renamed_line)
         for (config, latency), (code, name, casc) in zip(best, geos):
             final_name = name or "🌐 Неизвестно"
+            if spooky:
+                final_name += f" {spooky_tag(latency)}"
             if casc:
                 final_name += f" {casc}Каскад"
             country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
@@ -1569,7 +1740,8 @@ async def main():
         renamed = [line for _, _, line in items]
 
     # ---------- 6. сохраняем ----------
-    final_list = pinned + renamed
+    header = halloween_header(pinned) if spooky else pinned
+    final_list = header + renamed
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_FILE.write_text("\n".join(final_list) + "\n", encoding="utf-8")
@@ -1578,7 +1750,13 @@ async def main():
     print(f"[✓] Готово: {len(final_list)} (закр. {len(pinned)} + {len(renamed)})")
     print(f"[✓] Файл: {OUTPUT_FILE}")
 
-    # ---------- 7. где больше всего нерабочих ----------
+    # ---------- 7. почему отсеивались ----------
+    if _fail:
+        print("\n[i] Причины отказов (подсказка, какой порог ослабить):")
+        for reason, n in _fail.most_common():
+            print(f"    {n:>5}  {reason}")
+
+    # ---------- 8. где больше всего нерабочих ----------
     rows = [(url, tested, bad) for url, (tested, bad) in stats.items() if url and tested]
     if rows:
         rows.sort(key=lambda r: r[2], reverse=True)

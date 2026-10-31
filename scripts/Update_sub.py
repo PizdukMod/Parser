@@ -45,6 +45,7 @@ PINNED_CONFIGS = [
     "#profile-web-page-url: t.me/PizMod",
     "#support-url: t.me/Harachok",
     "#profile-update-interval: 6",
+    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=qq&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=#%F0%9F%95%B8%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%28telegram-only%29%F0%9F%8E%83",
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@78.159.250.214:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=firefox&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=00000000#%F0%9F%91%89%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%D1%8D%D1%82%D0%BE%202%20%28telegram-only%29",
     "vless://ff0b6ba8-bed0-4c4d-bbc9-23af47582615@wstg.datasynctrue.online:443/?type=ws&encryption=none&flow=&host=wstg.datasynctrue.online&path=%2Fapi%2Fconnect&security=tls&sni=wstg.datasynctrue.online&fp=chrome#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20LTE%F0%9F%93%B6%20Wi-Fi",
     "vless://ff0b6ba8-bed0-4c4d-bbc9-23af47582615@91.210.169.181:443/?type=ws&encryption=none&flow=&host=wstg.datasynctrue.online&path=%2Fapi%2Fconnect&security=tls&sni=wstg.datasynctrue.online&fp=firefox#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%202%20LTE%F0%9F%93%B6%20Wi-Fi",

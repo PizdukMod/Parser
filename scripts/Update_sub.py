@@ -32,6 +32,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
     "https://mifa.world/star",
     "https://pozor.bond/sub/utcwry9vug6k",
+    "https://oceaniavpn.dimastekolnikov13.workers.dev/sub?u=5512307834&f=decoded_5512307834_mvw1xogq.txt&p=android&scope=decode",
 ]
 
 
@@ -161,7 +162,7 @@ REQUIRE_UPLOAD = True       # False — если раннер не достаё�
 # --- Доступ к заблокированным сайтам (главное для ЧС-подписки) ---
 BLOCKED_URLS = [
     "https://www.youtube.com/generate_204",
-    "https://www.instagram.com/",
+    "https://www.tiktok.com/",
     "https://api.telegram.org/",
 ]
 MIN_BLOCKED_OK = 2          # сколько из BLOCKED_URLS должны открыться (0 = не проверять)

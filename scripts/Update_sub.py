@@ -27,7 +27,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 # ============================================================
 
 SOURCES = [
-    "https://freevpnhappcluchi.duckdns.org/sub/lzjrpfi55soz18q9",
+    "https://freevpn.happcluchi.workers.dev",
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
     "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
     "https://mifa.world/proton",

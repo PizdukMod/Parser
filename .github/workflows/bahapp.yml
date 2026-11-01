@@ -1,11 +1,17 @@
 name: bahapp.yml
 
 on:
-  workflow_dispatch: {}      # + можно запустить руками
+  workflow_dispatch: {}
+
+concurrency:
+  group: bahapp
+  cancel-in-progress: false
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
       - uses: actions/checkout@v4
 

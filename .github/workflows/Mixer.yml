@@ -5,9 +5,14 @@ on:
     - cron: "0 */8 * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: mixer
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -48,47 +53,6 @@ jobs:
           fi
 
           COUNT=$(grep -cE '^(vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic)://' output/sub.txt || true)
-
-          echo "[i] Конфигов в результате: ${COUNT}"
-
-          if [ "${COUNT}" -eq 0 ]; then
-            echo "[x] Подписка пустая"
-            exit 1
-          fi
-
-          echo "[+] Проверка результата пройдена"
-
-      - name: Check output
-        run: |
-          set -e
-
-          if [ ! -f "output/sub.txt" ]; then
-            echo "[x] output/sub.txt не найден"
-            exit 1
-          fi
-
-          COUNT=$(grep -cE '^(vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic)://' output/Mixer || true)
-
-          echo "[i] Конфигов в результате: ${COUNT}"
-
-          if [ "${COUNT}" -eq 0 ]; then
-            echo "[x] Подписка пустая"
-            exit 1
-          fi
-
-          echo "[+] Проверка результата пройдена"
-
-      - name: Check output
-        run: |
-          set -e
-
-          if [ ! -f "output/sub.txt" ]; then
-            echo "[x] output/sub.txt не найден"
-            exit 1
-          fi
-
-          COUNT=$(grep -cE '^(vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic)://' output/sub.txt || true)
-
           echo "[i] Конфигов в результате: ${COUNT}"
 
           if [ "${COUNT}" -eq 0 ]; then
@@ -105,41 +69,40 @@ jobs:
         run: |
           set -e
 
-          if [ -z "${GITVERSE_TOKEN}" ]; then
-            echo "[x] GITVERSE_TOKEN не задан"
-            exit 1
-          fi
-
-          if [ -z "${GITVERSE_REPO}" ]; then
-            echo "[x] GITVERSE_REPO не задан"
-            exit 1
-          fi
+          [ -z "${GITVERSE_TOKEN}" ] && { echo "[x] GITVERSE_TOKEN не задан"; exit 1; }
+          [ -z "${GITVERSE_REPO}" ] && { echo "[x] GITVERSE_REPO не задан"; exit 1; }
 
           git config --global user.email "actions@bots.local"
           git config --global user.name "sub-updater-bot"
 
           rm -rf gitverse_repo
-
           echo "[i] Клонирование GitVerse..."
-
-          git clone --quiet \
-            "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO}" \
-            gitverse_repo
-
-          cp output/sub.txt gitverse_repo/Mixer
+          git clone --quiet "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO}" gitverse_repo
 
           cd gitverse_repo
 
-          git add Mixer
+          for i in 1 2 3 4 5; do
+            git fetch --quiet origin master
+            git reset --hard origin/master
 
-          if git diff --cached --quiet; then
-            echo "[i] Нет изменений"
-            exit 0
-          fi
+            cp ../output/sub.txt Mixer
+            git add Mixer
 
-          git commit \
-            -m "auto: update Mixer $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            if git diff --cached --quiet; then
+              echo "[i] Нет изменений"
+              exit 0
+            fi
 
-          git push origin master
+            git commit -m "auto: update Mixer $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-          echo "[+] Mixer успешно обновлён"
+            if git push origin master; then
+              echo "[+] Mixer успешно обновлён"
+              exit 0
+            fi
+
+            echo "[!] Push отклонён, попытка $i/5, повторяю..."
+            sleep $((RANDOM % 5 + 3))
+          done
+
+          echo "[x] Не удалось запушить после 5 попыток"
+          exit 1

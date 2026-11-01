@@ -5,6 +5,10 @@ on:
     - cron: "0 */6 * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: update-vpn-subscription
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -33,6 +37,7 @@ jobs:
           sudo mv xray_bin/xray /usr/local/bin/xray
           sudo chmod +x /usr/local/bin/xray
           xray version
+
       - name: Install sing-box
         run: |
           set -e
@@ -88,7 +93,6 @@ jobs:
           fi
 
           COUNT=$(grep -cE '^(vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic)://' output/sub.txt || true)
-
           echo "[i] Конфигов в результате: ${COUNT}"
 
           if [ "${COUNT}" -eq 0 ]; then
@@ -105,64 +109,121 @@ jobs:
         run: |
           set -e
 
-          if [ -z "${GITVERSE_TOKEN}" ]; then
-            echo "[x] GITVERSE_TOKEN не задан"
-            exit 1
-          fi
-
-          if [ -z "${GITVERSE_REPO}" ]; then
-            echo "[x] GITVERSE_REPO не задан"
-            exit 1
-          fi
+          [ -z "${GITVERSE_TOKEN}" ] && { echo "[x] GITVERSE_TOKEN не задан"; exit 1; }
+          [ -z "${GITVERSE_REPO}" ] && { echo "[x] GITVERSE_REPO не задан"; exit 1; }
 
           git config --global user.email "actions@bots.local"
           git config --global user.name "sub-updater-bot"
 
           rm -rf gitverse_repo
-
           echo "[i] Клонирование GitVerse..."
-
-          git clone --quiet \
-            "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO}" \
-            gitverse_repo
-
-          cp output/sub.txt gitverse_repo/sub.txt
+          git clone --quiet "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO}" gitverse_repo
 
           cd gitverse_repo
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-          git add sub.txt
+          for i in 1 2 3 4 5; do
+            git fetch --quiet origin "${BRANCH}"
+            git reset --hard "origin/${BRANCH}"
 
-          if git diff --cached --quiet; then
-            echo "[i] Нет изменений"
-            exit 0
-          fi
+            cp ../output/sub.txt sub.txt
+            git add sub.txt
 
-          git commit \
-            -m "auto: update subscription $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            if git diff --cached --quiet; then
+              echo "[i] Нет изменений"
+              exit 0
+            fi
 
-          git push origin HEAD
+            git commit -m "auto: update subscription $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-          echo "[+] Подписка успешно обновлена"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "[+] Подписка успешно обновлена"
+              exit 0
+            fi
+
+            echo "[!] Push отклонён, попытка $i/5, повторяю..."
+            sleep $((RANDOM % 5 + 3))
+          done
+
+          echo "[x] Не удалось запушить после 5 попыток"
+          exit 1
 
   trigger-others:
     needs: update
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+
     steps:
-      - name: Trigger BL and bahapp
+      - name: Trigger BL, then bahapp (sequentially)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          REPO: PizdukMod/Parser
+          REF: master
+          DELAY_AFTER: "10"
         run: |
           set -e
-          for wf in BL.yml bahapp.yml; do
-            echo "[i] Запускаю $wf"
-            CODE=$(curl -s -o resp.txt -w "%{http_code}" -X POST \
-              "https://api.github.com/repos/PizdukMod/Parser/actions/workflows/${wf}/dispatches" \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -d '{"ref":"master"}')
-            if [ "${CODE}" != "204" ]; then
-              echo "[x] $wf: HTTP ${CODE}"; cat resp.txt; exit 1
+          API="https://api.github.com/repos/${REPO}"
+          H_AUTH="Authorization: Bearer ${GH_TOKEN}"
+          H_ACC="Accept: application/vnd.github+json"
+
+          run_and_wait() {
+            local wf="$1"
+            local start
+            start=$(date -u -d '-5 seconds' +%Y-%m-%dT%H:%M:%SZ)
+
+            echo "[i] Запускаю ${wf}"
+            local code
+            code=$(curl -s -o resp.txt -w "%{http_code}" -X POST \
+              "${API}/actions/workflows/${wf}/dispatches" \
+              -H "${H_AUTH}" -H "${H_ACC}" \
+              -d "{\"ref\":\"${REF}\"}")
+            if [ "${code}" != "204" ]; then
+              echo "[x] ${wf}: HTTP ${code}"; cat resp.txt; return 1
             fi
-            echo "[+] $wf запущен"
-            sleep 20
-          done
+
+            # Ищем только что созданный запуск (до ~3 минут)
+            local run_id=""
+            for i in $(seq 1 36); do
+              sleep 5
+              run_id=$(curl -s "${API}/actions/workflows/${wf}/runs?event=workflow_dispatch&branch=${REF}&per_page=10" \
+                -H "${H_AUTH}" -H "${H_ACC}" \
+                | jq -r --arg s "${start}" \
+                  '[.workflow_runs[] | select(.created_at >= $s)] | sort_by(.created_at) | first | .id // empty')
+              [ -n "${run_id}" ] && break
+            done
+
+            if [ -z "${run_id}" ]; then
+              echo "[x] ${wf}: запуск не найден"
+              return 1
+            fi
+            echo "[i] ${wf}: run id ${run_id}, жду завершения..."
+
+            # Ждём завершения (до 90 минут)
+            local status="" concl=""
+            for i in $(seq 1 360); do
+              local j
+              j=$(curl -s "${API}/actions/runs/${run_id}" -H "${H_AUTH}" -H "${H_ACC}")
+              status=$(echo "${j}" | jq -r '.status')
+              if [ "${status}" = "completed" ]; then
+                concl=$(echo "${j}" | jq -r '.conclusion')
+                break
+              fi
+              sleep 15
+            done
+
+            if [ "${status}" != "completed" ]; then
+              echo "[x] ${wf}: не дождался завершения"
+              return 1
+            fi
+
+            echo "[+] ${wf} завершён: ${concl}"
+            [ "${concl}" = "success" ] || echo "[!] ${wf} завершился не успешно (${concl})"
+            return 0
+          }
+
+          run_and_wait BL.yml || echo "[!] Проблема с BL.yml, иду дальше"
+
+          echo "[i] Пауза ${DELAY_AFTER} сек перед bahapp"
+          sleep "${DELAY_AFTER}"
+
+          run_and_wait bahapp.yml || echo "[!] Проблема с bahapp.yml"

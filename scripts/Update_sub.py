@@ -16,7 +16,7 @@ import os
 import itertools
 import time
 
-from collections import Counter
+from collections import Counter, defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -116,8 +116,8 @@ PINNED_CONFIGS = [
 # ============================================================
 
 TARGET_COUNT = 60          # сколько конфигов взять в итоге (не считая закреплённых)
-EARLY_STOP_MULT = 3        # остановить проверку, когда найдено TARGET_COUNT * N рабочих
-                           # (из них берутся лучшие по пингу). 0 = проверять все
+EARLY_STOP_MULT = 5        # остановить проверку, когда найдено TARGET_COUNT * N рабочих
+                           # (запас нужен: часть отсеется проверкой «из РФ»). 0 = проверять все
 
 MAX_PING_MS = 3000         # отсечка совсем медленных (итоговый балл: пинг + вклад скорости)
 GOOD_PING_MS = 300         # «быстрый» сервер (🎃 в названии); ≤3× — 👻, дальше — 🦇
@@ -146,10 +146,13 @@ XRAY_BINARY = "xray"       # должен быть в PATH
 # --- Hy2 (проверяется через sing-box, т.к. это UDP/QUIC) ---
 CHECK_HY2 = True           # False — не проверять hy2 вообще
 SINGBOX_BINARY = "sing-box"  # должен быть в PATH (нужна версия 1.11+)
+MAX_HY2 = 8                # максимум hy2 в итоге (UDP/QUIC из РФ часто режется; 0 = без лимита)
 
+# Тестовые URL — те же, что обычно использует клиент (google/gstatic) + cloudflare
 TEST_URLS = [
     "https://cp.cloudflare.com/generate_204",
     "https://www.gstatic.com/generate_204",
+    "https://www.google.com/generate_204",
 ]
 
 # Строгая проверка: КАЖДЫЙ тестовый URL должен ответить в КАЖДОМ раунде.
@@ -208,10 +211,29 @@ IP_ECHO_URLS = [
 ]
 REQUIRE_EXIT_IP = True      # не получили выходной IP или он = нашему → конфиг нерабочий
 DEDUPE_BY_EXIT_IP = True    # дубли по реальному выходному IP
+MAX_PER_SUBNET = 5          # максимум серверов из одной подсети /24 (0 = без лимита):
+                            # «фермы» из одной подсети разом падают/блокируются
+
+# --- Проверка «из России» ---
+# Раннер стоит за рубежом, а телефон — в РФ: сервер может отвечать раннеру и при этом
+# быть заблокирован у российских провайдеров («Тайм-аут» / «Соединение закрыто» в клиенте).
+# Поэтому лучших кандидатов проверяем по TCP С РОССИЙСКИХ УЗЛОВ check-host.net
+# (по тому же host:port, что и в конфиге — так же проверяется и DNS).
+RU_CHECK = True
+CHECK_HOST_API = "https://check-host.net"
+RU_NODES_MAX = 4            # сколько российских узлов использовать
+RU_MIN_OK = 2               # сколько узлов должны достучаться (если ответивших меньше — все они)
+RU_CHECK_CONCURRENCY = 3    # одновременных запросов к check-host (не повышать — лимиты API)
+RU_POOL_MULT = 2.0          # собрать прошедших «из РФ»: TARGET_COUNT * N (запас под повторную проверку)
+RU_MAX_CHECKS = 350         # максимум конфигов, которые отправим в check-host за запуск
+RU_RESULT_WAIT = 14.0       # сек ждать результаты одной проверки
+RU_FAIL_OPEN = True         # check-host недоступен -> не отбрасывать (иначе подписка опустеет)
 
 # Повторная проверка лучших кандидатов отдельным запуском ядра:
 # отсекает «мигающие» серверы, которые прошли проверку случайно.
 CONFIRM_BEST = True
+CONFIRM_RUNS = 2           # сколько ДОПОЛНИТЕЛЬНЫХ прогонов должен пройти конфиг
+CONFIRM_PAUSE = 15.0       # пауза между прогонами (ловит «мигающие» серверы)
 CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
 CONFIRM_CONCURRENCY = 5    # при повторной проверке меньше нагрузки = честнее скорость
 
@@ -1118,7 +1140,7 @@ def _reject(reason):
 #   2) пауза и повтор по тому же соединению (keep-alive);
 #   3) выходной IP определён, не равен нашему; Cloudflare trace подтверждает
 #      тот же IP (и даёт страну выхода) — «плавающий» выход отсеивается;
-#   4) доступ к заблокированным сайтам (YouTube / Instagram / Telegram);
+#   4) доступ к заблокированным сайтам (YouTube / TikTok / Telegram);
 #   5) параллельный залп на новых соединениях;
 #   6) скачивание ~1 МБ и отдача (upload) — обрывы и «полусломанные» туннели;
 #   7) выходной IP не изменился к концу проверки; разброс пинга небольшой.
@@ -1241,6 +1263,165 @@ async def real_check(line):
             return await _probe(line, port)
     except Exception:
         return _reject("прочая ошибка")
+
+
+# ============================================================
+# ПРОВЕРКА «ИЗ РОССИИ» через check-host.net (TCP с российских узлов)
+# Ловит серверы, которые отвечают зарубежному раннеру, но недоступны
+# российским провайдерам (блокировка IP/порта, DNS-подмена) — именно они
+# в клиенте показывают «Тайм-аут» и «Соединение закрыто».
+# UDP (hy2) так проверить нельзя — они идут без этой проверки (но с лимитом MAX_HY2).
+# ============================================================
+
+_ru_nodes = []
+_ru_api_dead = False
+_ru_api_fails = 0
+
+_CH_HEADERS = {"Accept": "application/json"}
+
+
+def parse_ru_result(res, need):
+    """Разбор ответа check-result.
+    res: {node: [ {"time": 0.03, "address": ...} ] | [ {"error": "..."} ] | None}
+    Возвращает (ok_nodes, answered_nodes, passed)."""
+    ok = answered = 0
+    for _node, val in (res or {}).items():
+        if val is None:
+            continue
+        answered += 1
+        try:
+            item = val[0]
+        except Exception:
+            continue
+        if isinstance(item, dict) and "time" in item and "error" not in item:
+            ok += 1
+    if answered == 0:
+        return 0, 0, None          # узлы не ответили — результат неизвестен
+    return ok, answered, ok >= min(need, answered)
+
+
+async def ru_load_nodes(session):
+    """Список российских узлов check-host.net."""
+    try:
+        async with session.get(f"{CHECK_HOST_API}/nodes/hosts", headers=_CH_HEADERS,
+                               timeout=aiohttp.ClientTimeout(total=15)) as r:
+            data = await r.json(content_type=None)
+        nodes = [n for n in (data.get("nodes") or {}) if str(n).lower().startswith("ru")]
+        return sorted(nodes)[:RU_NODES_MAX]
+    except Exception:
+        return []
+
+
+async def ru_tcp_check(session, hostport):
+    """True/False — доступен ли host:port с российских узлов; None — не удалось узнать."""
+    global _ru_api_fails, _ru_api_dead
+    params = [("host", hostport)] + [("node", n) for n in _ru_nodes]
+    rid = None
+    for attempt in range(3):
+        try:
+            async with session.get(f"{CHECK_HOST_API}/check-tcp", params=params, headers=_CH_HEADERS,
+                                   timeout=aiohttp.ClientTimeout(total=15)) as r:
+                if r.status == 429:
+                    await asyncio.sleep(6 * (attempt + 1))
+                    continue
+                if r.status != 200:
+                    break
+                data = await r.json(content_type=None)
+            rid = data.get("request_id")
+            break
+        except Exception:
+            await asyncio.sleep(2)
+    if not rid:
+        _ru_api_fails += 1
+        if _ru_api_fails >= 8:
+            _ru_api_dead = True
+        return None
+
+    res = {}
+    deadline = time.monotonic() + RU_RESULT_WAIT
+    while time.monotonic() < deadline:
+        await asyncio.sleep(2.0)
+        try:
+            async with session.get(f"{CHECK_HOST_API}/check-result/{rid}", headers=_CH_HEADERS,
+                                   timeout=aiohttp.ClientTimeout(total=15)) as r:
+                res = await r.json(content_type=None)
+        except Exception:
+            continue
+        if res and all(v is not None for v in res.values()):
+            break
+
+    ok, answered, passed = parse_ru_result(res, RU_MIN_OK)
+    if passed is None:
+        _ru_api_fails += 1
+        if _ru_api_fails >= 8:
+            _ru_api_dead = True
+        return None
+    _ru_api_fails = 0
+    return passed
+
+
+async def ru_filter(session, items):
+    """items: [(config, score)] по возрастанию балла. Оставляет доступные «из РФ»."""
+    global _ru_nodes
+    _ru_nodes = await ru_load_nodes(session)
+    if not _ru_nodes:
+        print("[!] check-host.net: российские узлы недоступны — проверка «из РФ» пропущена")
+        return items
+    print(f"[i] Проверка «из РФ»: узлы {', '.join(n.split('.')[0] for n in _ru_nodes)}")
+
+    want = int(TARGET_COUNT * RU_POOL_MULT)
+    kept = []
+    checked = dropped = unknown = 0
+    sem = asyncio.Semaphore(RU_CHECK_CONCURRENCY)
+
+    async def one(config, score):
+        nonlocal checked, dropped, unknown
+        hp = get_host_port(config)
+        if config.startswith(HY2_SCHEMES) or not hp:
+            return config, score, True            # UDP/нераспознанное — не проверить
+        host, port = hp
+        hostport = f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+        async with sem:
+            res = await ru_tcp_check(session, hostport)
+        checked += 1
+        if res is None:
+            unknown += 1
+            return config, score, RU_FAIL_OPEN
+        if not res:
+            dropped += 1
+            _reject("недоступен из РФ (check-host TCP)")
+        return config, score, res
+
+    idx = 0
+    step = RU_CHECK_CONCURRENCY * 6
+    while idx < len(items) and len(kept) < want and checked < RU_MAX_CHECKS and not _ru_api_dead:
+        chunk = items[idx: idx + step]
+        idx += len(chunk)
+        for config, score, ok in await asyncio.gather(*(one(c, s) for c, s in chunk)):
+            if ok:
+                kept.append((config, score))
+        print(f"    из РФ: проверено {checked}, доступно {len(kept)}, отсеяно {dropped}, неизвестно {unknown}")
+
+    if _ru_api_dead:
+        print("[!] check-host.net перестал отвечать — остаток берётся без проверки «из РФ»")
+        if RU_FAIL_OPEN:
+            kept.extend(items[idx:idx + max(0, want - len(kept))])
+    return kept
+
+
+def cap_hy2(items):
+    """Оставляет не более MAX_HY2 лучших hy2 (UDP из РФ часто режется)."""
+    if not MAX_HY2:
+        return items
+    out, n = [], 0
+    for config, score in items:
+        if config.startswith(HY2_SCHEMES):
+            n += 1
+            if n > MAX_HY2:
+                _reject("лимит hy2 (MAX_HY2)")
+                continue
+        out.append((config, score))
+    return out
 
 
 # ============================================================
@@ -1491,13 +1672,21 @@ async def check_all(candidates):
 # УДАЛЕНИЕ ДУБЛЕЙ ПО РЕАЛЬНОМУ IP:ПОРТ И ПО ВЫХОДНОМУ IP
 # Разные домены/названия на один и тот же ip:порт — это один сервер.
 # Конфиги с одинаковым выходным IP — тоже считаем дублями.
-# Из группы остаётся самый быстрый.
+# Из группы остаётся самый быстрый. Плюс не больше MAX_PER_SUBNET серверов
+# из одной подсети /24 (чтобы «ферма» из 20 соседних IP не заняла всё место).
 # ============================================================
+
+def _subnet24(ip):
+    if ip and re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", ip):
+        return ".".join(ip.split(".")[:3])
+    return None
+
 
 async def dedupe_by_ip(items, taken=None):
     """items: список (config, latency), уже отсортированный по баллу.
     taken: множество (ip, port), которые уже заняты (закреплённые)."""
     seen = set(taken or ())
+    per_subnet = defaultdict(int)
 
     hosts = {get_host_port(c)[0] for c, _ in items if get_host_port(c)}
     await asyncio.gather(*(resolve_ip(h) for h in hosts))
@@ -1514,15 +1703,22 @@ async def dedupe_by_ip(items, taken=None):
             keys.append(("exit", _exit_ip[config]))
         if any(k in seen for k in keys):
             continue
+        sub = _subnet24(ip)
+        if MAX_PER_SUBNET and sub and per_subnet[sub] >= MAX_PER_SUBNET:
+            _reject("лимит на подсеть /24 (MAX_PER_SUBNET)")
+            continue
         seen.update(keys)
+        if sub:
+            per_subnet[sub] += 1
         result.append((config, latency))
     return result
 
 
 # ============================================================
 # ПОВТОРНАЯ ПРОВЕРКА ЛУЧШИХ
-# Берём кандидатов по порядку балла и проверяем второй раз отдельным ядром.
-# Остаются только те, кто прошёл оба раза. Идём, пока не наберём TARGET_COUNT.
+# Каждый кандидат должен пройти полную проверку ещё CONFIRM_RUNS раз,
+# с паузой CONFIRM_PAUSE между прогонами, отдельным запуском ядра.
+# Это отсекает «мигающие» серверы. Идём, пока не наберём TARGET_COUNT.
 # ============================================================
 
 async def confirm_best(items):
@@ -1531,13 +1727,19 @@ async def confirm_best(items):
     semaphore = asyncio.Semaphore(CONFIRM_CONCURRENCY)
 
     async def worker(config, first_latency):
-        async with semaphore:
-            try:
-                latency = await real_check(config)
-            except Exception:
-                latency = None
-        if latency is not None and latency <= MAX_PING_MS:
-            confirmed.append((config, (first_latency + latency) / 2))
+        scores = [first_latency]
+        for i in range(CONFIRM_RUNS):
+            if i:
+                await asyncio.sleep(CONFIRM_PAUSE)   # пауза вне семафора — слот не занят
+            async with semaphore:
+                try:
+                    latency = await real_check(config)
+                except Exception:
+                    latency = None
+            if latency is None or latency > MAX_PING_MS:
+                return
+            scores.append(latency)
+        confirmed.append((config, sum(scores) / len(scores)))
 
     while idx < len(items) and len(confirmed) < TARGET_COUNT:
         need = TARGET_COUNT - len(confirmed)
@@ -1678,7 +1880,7 @@ async def main():
                     print(f"    {n:>5}  {reason}")
             return
 
-        # ---------- 4. лучшие по баллу, без дублей, с повторной проверкой ----------
+        # ---------- 4. лучшие по баллу: без дублей, «из РФ», с повторной проверкой ----------
         working.sort(key=lambda x: x[1])
 
         # IP:порт закреплённых тоже считаем занятыми
@@ -1693,7 +1895,18 @@ async def main():
 
         before = len(working)
         working = await dedupe_by_ip(working, taken)
-        print(f"[i] Убрал дубли (IP:порт / выходной IP): {before - len(working)} (осталось {len(working)})")
+        print(f"[i] Убрал дубли и «фермы» подсетей: {before - len(working)} (осталось {len(working)})")
+
+        working = cap_hy2(working)
+
+        if RU_CHECK:
+            print("\n[i] Проверка доступности из России (check-host.net)...")
+            before = len(working)
+            working = await ru_filter(session, working)
+            print(f"[i] Доступны из РФ: {len(working)} из {before}")
+            if not working:
+                print("[x] После проверки «из РФ» ничего не осталось.")
+                return
 
         if CONFIRM_BEST:
             print("\n[i] Повторная проверка лучших...")

@@ -31,7 +31,6 @@ SOURCES = [
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
     "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
     "https://mifa.world/proton",
-    "https://pozor.bond/sub/utcwry9vug6k",
     "https://oceaniavpn.dimastekolnikov13.workers.dev/sub?u=5512307834&f=decoded_5512307834_mvw1xogq.txt&p=android&scope=decode",
 ]
 

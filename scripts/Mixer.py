@@ -27,17 +27,16 @@ from urllib.parse import urlparse, parse_qs, parse_qsl, unquote, quote
 # ============================================================
 
 SOURCES = [
-    # --- из первой версии ---
+    # Большие
     "https://freevpn.happcluchi.workers.dev",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
-    # --- добавлено из второй версии ---
+    # РКП
     "https://gidroksi.fun/black-list",
-    # Белые списки:
+    "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/bl",
+    # Кота
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLACK_LIST.txt",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BEST_LIST.txt",
-    # --- добавлено для объёма (из скрипта ЧС; ненужное можно удалить) ---
-    "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
-    "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
+    # Mifa
     "https://mifa.world/proton",
 ]
 

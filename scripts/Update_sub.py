@@ -29,7 +29,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev",
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
-    "https://mifa.world/proton",
+    "https://mifa.world/jetico",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
     "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/bl",

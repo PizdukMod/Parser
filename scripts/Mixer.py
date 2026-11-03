@@ -37,7 +37,7 @@ SOURCES = [
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLACK_LIST.txt",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BEST_LIST.txt",
     # Mifa
-    "https://mifa.world/pilot",
+    "https://mifa.world/sage",
 ]
 
 

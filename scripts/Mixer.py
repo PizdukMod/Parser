@@ -30,6 +30,7 @@ SOURCES = [
     # Большие
     "https://freevpn.happcluchi.workers.dev",
     "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
+    "https://pozor.bond/sub/free-sub-forza-obxod",
     # РКП
     "https://gidroksi.fun/black-list",
     "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/bl",

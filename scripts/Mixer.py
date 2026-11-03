@@ -73,7 +73,7 @@ GOOD_PING_MS = 300         # «быстрый» сервер (🎃 в назва
 # --- Хеллоуин ---
 # True — всегда, False — никогда, "auto" — только с 25 октября по 2 ноября
 # Авто-режим ВЫКЛЮЧЕН: переименование включено всегда.
-HALLOWEEN = auto
+HALLOWEEN = True
 
 # --- реальный пинг ---
 CHECK_ROUNDS = 3           # раундов по всем TEST_URLS; 1-й «холодный», остальные считаются в пинг
@@ -157,12 +157,13 @@ REQUIRE_EXIT_COUNTRY = False  # True — отбрасывать конфиги, 
 # Выходы в этих странах отбрасываются. Пример: {"RU", "BY"}. Пусто = не фильтровать.
 EXCLUDE_EXIT_COUNTRIES = set()
 
-# Дубли ДО проверки: домен и его IP, одинаковые uuid/пароль/транспорт = один конфиг.
+# --- Дубликаты ---
+# ДО проверки: домен и его IP + те же uuid/пароль/транспорт = один конфиг.
 DEDUPE_RESOLVED = True
 
-# Дубли ПОСЛЕ проверки (лучшие по баллу остаются). Режим «много конфигов»: всё выкл./мягко.
+# ПОСЛЕ проверки (остаются лучшие по баллу). В режиме «много конфигов» — мягко.
 DEDUPE_BY_IP_PORT = False   # True — один конфиг на ip:порт (жёстко, режет много)
-DEDUPE_BY_EXIT_IP = False   # True — один конфиг на выходной IP (= MAX_PER_EXIT_IP = 1)
+DEDUPE_BY_EXIT_IP = False   # True — один конфиг на выходной IP (то же, что MAX_PER_EXIT_IP = 1)
 MAX_PER_ENDPOINT = 3        # не больше N конфигов на один ip:порт (разные uuid); 0 = без лимита
 MAX_PER_EXIT_IP = 0         # не больше N на один выходной IP; 0 = без лимита
 MAX_PER_SUBNET24 = 0        # не больше N на одну подсеть /24 (IPv4); 0 = без лимита
@@ -393,54 +394,165 @@ def extract_lines(raw):
 
 # ============================================================
 # КЛЮЧ ДЛЯ УДАЛЕНИЯ ДУБЛИКАТОВ
-# Два конфига с разным названием (#...), но одним сервером — дубли.
+# Сравниваются только поля, которые реально влияют на соединение.
+# Не влияют: название (#...), порядок параметров, fp, alpn, allowInsecure,
+# aid/scy у vmess, регистр хоста, точка в конце домена, [ ] у IPv6.
 # ============================================================
 
-def dedupe_key(line):
-    """Ключ дубликата: протокол + сервер + порт + учётные данные + параметры.
-    Название (#...), порядок параметров и пустые параметры не влияют."""
+def _nh(h):
+    """Нормализация хоста."""
+    return (h or "").strip().strip("[]").rstrip(".").lower()
+
+
+def _norm_net(n):
+    n = (n or "tcp").lower()
+    if n in ("raw", "", "none"):
+        return "tcp"
+    if n == "splithttp":
+        return "xhttp"
+    if n in ("h2", "http"):
+        return "h2"
+    return n
+
+
+def _stream_sig(params, host, default_security="none"):
+    """Подпись транспорта/безопасности: только значимые поля."""
+    net = _norm_net(first(params, "type", "network", "net"))
+    sec = (first(params, "security") or default_security).lower()
+    if sec not in ("tls", "reality"):
+        sec = "none"
+    sig = [net, sec]
+
+    if net in ("ws", "xhttp", "h2"):
+        sig += [unquote(first(params, "path") or "/"),
+                _nh(first(params, "host") or host)]
+        if net == "xhttp":
+            sig.append(first(params, "mode") or "auto")
+    elif net == "grpc":
+        sig.append(unquote(first(params, "servicename") or ""))
+    elif net == "tcp":
+        hdr = (first(params, "headertype") or "none").lower()
+        if hdr != "none":
+            sig += ["hdr", hdr, unquote(first(params, "path") or "/"),
+                    _nh(first(params, "host") or "")]
+
+    if sec in ("tls", "reality"):
+        sig.append(_nh(first(params, "sni", "servername") or host))
+    if sec == "reality":
+        sig += [first(params, "pbk", "publickey") or "",
+                (first(params, "sid", "shortid") or "").lower()]
+    return tuple(sig)
+
+
+def dedupe_parts(line):
+    """(схема, хост, порт, остальное). host=None — не разобрали, сравниваем строку целиком."""
     line = line.strip()
-
-    if line.startswith("vmess://"):
-        data = b64decode_safe(line[len("vmess://"):])
-        if data:
-            try:
-                o = json.loads(data)
-                return ("vmess", str(o.get("add")).strip().lower(), str(o.get("port")),
-                        str(o.get("id")).strip().lower(), o.get("net") or "tcp",
-                        o.get("path") or "", (o.get("host") or "").lower(),
-                        o.get("tls") or "", (o.get("sni") or "").lower())
-            except Exception:
-                pass
-        return ("raw", line)
-
+    raw = ("raw", None, None, (line.split("#", 1)[0],))  # регистр НЕ трогаем: пароли чувствительны
     try:
+        if line.startswith("vmess://"):
+            data = b64decode_safe(line[len("vmess://"):])
+            if not data:
+                return raw
+            o = json.loads(data)
+            host, port = _nh(o.get("add")), int(o.get("port"))
+            net = _norm_net(o.get("net"))
+            params = {
+                "type": net,
+                "path": o.get("path"),
+                "host": o.get("host"),
+                "servicename": o.get("path") if net == "grpc" else None,
+                "security": "tls" if str(o.get("tls", "")).lower() == "tls" else "none",
+                "sni": o.get("sni"),
+                "headertype": o.get("type"),
+            }
+            if not (host and port):
+                return raw
+            return ("vmess", host, port,
+                    (str(o.get("id")).strip().lower(),) + _stream_sig(params, host))
+
+        if line.startswith("ss://"):
+            ob = parse_ss(line)
+            if not ob:
+                return raw
+            s = ob["settings"]["servers"][0]
+            return ("ss", _nh(s["address"]), s["port"], (s["method"], s["password"]))
+
+        if line.startswith(HY2_SCHEMES):
+            parts = split_hy2(line)
+            if not parts:
+                return raw
+            auth, host, ports, params = parts
+            single, _ = _parse_ports(ports)
+            if not single:
+                _, r2 = _parse_ports(first(params, "mport") or "")
+                single = int(r2[0].split(":")[0]) if r2 else None
+            if not (host and single):
+                return raw
+            return ("hy2", _nh(host), single, (
+                auth,
+                _nh(first(params, "sni", "peer") or host),
+                (first(params, "obfs") or "").lower(),
+                first(params, "obfs-password", "obfs_password") or "",
+            ))
+
         parsed = urlparse(line.split("#", 1)[0])
         scheme = parsed.scheme.lower()
-        if scheme == "hysteria2":
-            scheme = "hy2"  # один и тот же протокол
-        host = (parsed.hostname or "").lower()
-        port = parsed.port
+        host, port = _nh(parsed.hostname), parsed.port
+        if not (host and port):
+            return raw
         user = unquote(parsed.username or "")
         pw = unquote(parsed.password or "")
+        params = query_params(parsed)
 
-        # ss://BASE64@host:port и ss://method:pass@host:port — одно и то же
-        if scheme == "ss" and not pw:
-            dec = b64decode_safe(user)
-            if dec and ":" in dec:
-                user, pw = dec.split(":", 1)
+        if scheme == "vless":
+            return ("vless", host, port,
+                    (user.lower(), (first(params, "flow") or ""),
+                     (first(params, "encryption") or "none"))
+                    + _stream_sig(params, host))
+        if scheme == "trojan":
+            return ("trojan", host, port,
+                    (user, pw) + _stream_sig(params, host, default_security="tls"))
 
-        if scheme in ("vless", "vmess"):
-            user = user.lower()
-
-        params = tuple(sorted(
-            (k.lower(), v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if v != ""
-        ))
-        if not host:
-            return ("raw", line.split("#", 1)[0].lower())
-        return (scheme, user, pw, host, port, params)
+        # tuic / ssr / прочее: учётка + непустые параметры
+        extra = tuple(sorted((k, v) for k, v in params.items() if v != ""))
+        return (scheme, host, port, (user, pw, extra))
     except Exception:
-        return ("raw", line.split("#", 1)[0].lower())
+        return raw
+
+
+def dedupe_key(line):
+    """Ключ дубликата (по домену). Название (#...) не влияет."""
+    return dedupe_parts(line)
+
+
+async def dedupe_resolved(configs):
+    """Дубли по реальному IP: домен и его IP + те же данные входа = один конфиг.
+    Выполняется до проверки — экономит время ядра."""
+    if not DEDUPE_RESOLVED:
+        return configs
+
+    parts = {c: dedupe_parts(c) for c in configs}
+    hosts = {p[1] for p in parts.values() if p[1]}
+    sem = asyncio.Semaphore(100)
+
+    async def resolve(h):
+        async with sem:
+            await resolve_ip(h)
+
+    await asyncio.gather(*(resolve(h) for h in hosts))
+
+    seen, out = set(), []
+    for c in configs:
+        scheme, host, port, rest = parts[c]
+        if host:
+            key = (scheme, _dns_cache.get(host) or host, port, rest)
+        else:
+            key = (scheme, host, port, rest)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+    return out
 
 
 # ============================================================
@@ -1356,28 +1468,53 @@ async def check_all(candidates):
 
 
 # ============================================================
-# ДУБЛИ ПО РЕАЛЬНОМУ IP:ПОРТ / ВЫХОДНОМУ IP (по флагам, по умолчанию выкл.)
+# ДУБЛИ ПОСЛЕ ПРОВЕРКИ: по ip:порт / выходному IP / подсети /24
+# items уже отсортированы по баллу — при лимитах остаются лучшие.
 # ============================================================
 
 async def dedupe_by_ip(items):
-    if not (DEDUPE_BY_IP_PORT or DEDUPE_BY_EXIT_IP):
+    exit_cap = 1 if DEDUPE_BY_EXIT_IP else MAX_PER_EXIT_IP
+    endpoint_cap = 1 if DEDUPE_BY_IP_PORT else MAX_PER_ENDPOINT
+    if not (endpoint_cap or exit_cap or MAX_PER_SUBNET24):
         return items
 
-    seen = set()
-    hosts = {get_host_port(c)[0] for c, _ in items if get_host_port(c)}
+    hosts = set()
+    for c, _ in items:
+        hp = get_host_port(c)
+        if hp:
+            hosts.add(hp[0])
     await asyncio.gather(*(resolve_ip(h) for h in hosts))
 
+    endpoints, exits, subnets = Counter(), Counter(), Counter()
     result = []
     for config, latency in items:
-        keys = []
         hp = get_host_port(config)
-        if DEDUPE_BY_IP_PORT and hp:
-            keys.append(((_dns_cache.get(hp[0]) or hp[0]), hp[1]))
-        if DEDUPE_BY_EXIT_IP and config in _exit_ip:
-            keys.append(("exit", _exit_ip[config]))
-        if any(k in seen for k in keys):
+        ip = (_dns_cache.get(hp[0]) or hp[0]) if hp else None
+
+        ep_key = (ip, hp[1]) if hp else None
+        if endpoint_cap and ep_key and endpoints[ep_key] >= endpoint_cap:
             continue
-        seen.update(keys)
+
+        ex = _exit_ip.get(config)
+        if exit_cap and ex and exits[ex] >= exit_cap:
+            continue
+
+        net24 = None
+        if MAX_PER_SUBNET24 and ip:
+            try:
+                if ipaddress.ip_address(ip).version == 4:
+                    net24 = ip.rsplit(".", 1)[0]
+            except ValueError:
+                pass
+        if net24 and subnets[net24] >= MAX_PER_SUBNET24:
+            continue
+
+        if ep_key:
+            endpoints[ep_key] += 1
+        if ex:
+            exits[ex] += 1
+        if net24:
+            subnets[net24] += 1
         result.append((config, latency))
     return result
 
@@ -1472,6 +1609,11 @@ async def main():
             unique.append(c)
 
         print(f"[i] После удаления дубликатов: {len(unique)}")
+
+        before_res = len(unique)
+        unique = await dedupe_resolved(unique)
+        if len(unique) != before_res:
+            print(f"[i] Дубли по реальному IP: -{before_res - len(unique)} (осталось {len(unique)})")
 
         xray_cands = [c for c in unique if c.startswith(XRAY_SUPPORTED)]
         hy2_cands = [c for c in unique if c.startswith(HY2_SCHEMES)] if hy2_enabled else []

@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import aiohttp_socks
 import base64
+import bisect
 import hashlib
 import ipaddress
 import json
@@ -80,8 +81,9 @@ MIN_PER_SOURCE = 1
 
 # --- СТРОГИЙ РЕЖИМ БС + ГАРАНТИЯ КОЛИЧЕСТВА ---
 # Каждому конфигу ставится уровень доверия к «это правда БС» (tier):
-#   3 = РФ-вход (IP сервера в РФ) И (SNI из WL_DOMAINS ИЛИ ASN из ASN_WL_KEYWORDS ИЛИ это каскад РФ→мир)
-#   2 = только SNI из WL_DOMAINS ИЛИ только IP в РФ
+#   3 = (IP сервера в списке БС И SNI из списка БС)
+#       ИЛИ РФ-вход (IP сервера в РФ) И (SNI из белых доменов ИЛИ ASN из ASN_WL_KEYWORDS ИЛИ это каскад РФ→мир)
+#   2 = только SNI из белых доменов ИЛИ только IP в РФ / в списке БС
 #   1 = БС только по названию
 # За непройденную проверку данных и за нестабильность между запусками уровень снижается на 1.
 # В файл идут сначала все конфиги с tier >= STRICT_MIN_TIER. Если их меньше MIN_TOTAL —
@@ -89,7 +91,7 @@ MIN_PER_SOURCE = 1
 STRICT_WL = True            # False = брать всё, что похоже на БС (tier >= 1)
 STRICT_MIN_TIER = 3         # порог «основной» части подписки
 MIN_TOTAL = 50              # минимум конфигов в подписке (без закреплённых)
-MAX_TOTAL = 80               # максимум конфигов в подписке (0 = без ограничения)
+MAX_TOTAL = 0               # максимум конфигов в подписке (0 = без ограничения)
 ONLY_XRAY_PROTOCOLS = True  # True = выкинуть hysteria2/tuic/ssr (их TCP-проверка ничего не доказывает, это UDP)
 
 # ASN сервера (поле "as" из ip-api): хостеры/операторы РФ, чьи подсети чаще попадают в БС
@@ -134,12 +136,12 @@ MAX_CASCADES_PER_SOURCE = 60
 MAX_CASCADES_PER_COUNTRY = 30
 
 # --- удаление дубликатов ---
-DEDUPE_BY_EXIT_IP = False
+DEDUPE_BY_EXIT_IP = False   # у БС-серверов часто общий выход, но разные входы — это не дубли
 
 # --- РЕЖИМ БЕЛЫХ СПИСКОВ (БС) ---
 WHITELIST_ONLY = True        # True = оставлять только конфиги белых списков
 WL_TRUST_NAME = True         # БС по названию ("БС" / "белые списки" / "whitelist") — теперь только tier 1
-WL_ACCEPT_RU_IP = True       # кандидатами считаются и серверы с IP в РФ (каскады РФ→мир); сами по себе — tier 2
+WL_ACCEPT_RU_IP = True       # кандидатами считаются и серверы с IP в РФ / в списке БС (каскады РФ→мир); сами по себе — tier 2
 WL_ONLY_RU_SERVERS = False   # True = только РЕАЛЬНЫЙ ВЫХОДНОЙ IP в РФ (выбросит все каскады)
 
 WL_DOMAINS = (
@@ -162,6 +164,18 @@ WL_DOMAINS = (
     # Домены авторов БС-конфигов (работают за счёт IP). "name.*" = любая зона (.homes, .net, .xyz ...)
     "sysopnova.art", "shprcdn.*", "portshaper.com", "cdnguard.org", "dismissaltree.net",
     "guardora.pro", "tunnelgate.org", "avroraservice.online", "centermass.net",
+)
+
+# --- внешние списки БС (ancored/ru-mobile-whitelist), подтягиваются при каждом запуске ---
+# Ссылка с датой в имени релиза устаревает — поэтому вторым вариантом стоит /latest/.
+WL_LISTS_ENABLED = True
+WL_SNI_URLS = (
+    "https://github.com/ancored/ru-mobile-whitelist/releases/download/2026.11.04-25/ru-mobile-whitelist-sni.txt",
+    "https://github.com/ancored/ru-mobile-whitelist/releases/latest/download/ru-mobile-whitelist-sni.txt",
+)
+WL_IP_URLS = (
+    "https://github.com/ancored/ru-mobile-whitelist/releases/download/2026.11.04-25/ru-mobile-whitelist-ip.txt",
+    "https://github.com/ancored/ru-mobile-whitelist/releases/latest/download/ru-mobile-whitelist-ip.txt",
 )
 
 SHOW_SNI_STATS = True
@@ -208,7 +222,7 @@ GEO_FALLBACK_WEST = (
 )
 GEO_FALLBACK_TIMEOUT = 6.0
 
-MAX_PING_MS = 200         # жёсткая отсечка для ПРЯМЫХ в основной части (медленнее — только в резерв)
+MAX_PING_MS = 200         # отсечка для ПРЯМЫХ в основной части (медленнее — только в резерв)
 GOOD_PING_MS = 50
 
 BASE_LOCAL_PORT = 21000
@@ -615,7 +629,94 @@ def cascade_suffix(config):
     return CASCADE_LABEL.format(flag=get_country_flag(ent), country=get_country_name(ent), code=ent or "")
 
 
+# ============================================================
+# ВНЕШНИЕ СПИСКИ БС (домены + IP-подсети)
+# ============================================================
+
+WL_SNI_SET = set()
+WL_RANGES = {4: ([], []), 6: ([], [])}   # версия IP -> (начала диапазонов, концы диапазонов)
+
+
+def _list_lines(text):
+    for line in (text or "").splitlines():
+        line = line.split("#", 1)[0].strip().lower()
+        if line:
+            yield line
+
+
+def _build_ranges(nets):
+    rng = sorted((int(n.network_address), int(n.broadcast_address)) for n in nets)
+    merged = []
+    for s, e in rng:
+        if merged and s <= merged[-1][1] + 1:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    return [m[0] for m in merged], [m[1] for m in merged]
+
+
+async def load_wl_lists(session):
+    """Скачивает списки доменов и подсетей БС. Пробует ссылки по порядку."""
+    if not WL_LISTS_ENABLED:
+        return
+
+    raw = None
+    for url in WL_SNI_URLS:
+        raw = await fetch(session, url)
+        if raw:
+            break
+    for line in _list_lines(raw):
+        WL_SNI_SET.add(line.lstrip("*.").strip("."))
+
+    raw = None
+    for url in WL_IP_URLS:
+        raw = await fetch(session, url)
+        if raw:
+            break
+    nets = {4: [], 6: []}
+    for line in _list_lines(raw):
+        try:
+            n = ipaddress.ip_network(line, strict=False)
+            nets[n.version].append(n)
+        except ValueError:
+            continue
+    for v in (4, 6):
+        WL_RANGES[v] = _build_ranges(nets[v])
+
+    print(f"[i] Списки БС: доменов {len(WL_SNI_SET)}, "
+          f"подсетей IPv4 {len(WL_RANGES[4][0])}, IPv6 {len(WL_RANGES[6][0])}")
+    if not WL_SNI_SET and not WL_RANGES[4][0]:
+        print("[!] Списки БС не загрузились — работаю только по встроенным WL_DOMAINS")
+
+
+def ip_in_wl(ip):
+    if not ip:
+        return False
+    try:
+        a = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    starts, ends = WL_RANGES[a.version]
+    if not starts:
+        return False
+    i = bisect.bisect_right(starts, int(a)) - 1
+    return i >= 0 and int(a) <= ends[i]
+
+
+def entry_ip_in_wl(config):
+    """IP сервера (вход) входит в подсети БС."""
+    hp = get_host_port(config)
+    if not hp:
+        return False
+    return ip_in_wl(_dns_cache.get(hp[0]) or hp[0])
+
+
 def domain_in_whitelist(domain):
+    if WL_SNI_SET:
+        parts = domain.split(".")
+        for i in range(len(parts)):
+            if ".".join(parts[i:]) in WL_SNI_SET:
+                return True
     for d in WL_DOMAINS:
         if d.endswith(".*"):
             base = re.escape(d[:-2])
@@ -642,9 +743,12 @@ def wl_tier(config):
     dom = any(domain_in_whitelist(d) for d in config_domains(config))
     name = bool(WL_TRUST_NAME and WL_NAME_REGEX.search(config_name(config)))
     ru = entry_cc(config) == "RU"
+    ip_wl = entry_ip_in_wl(config)
+    if ip_wl and dom:
+        return 3
     if ru and (dom or entry_asn_ok(config) or is_cascade(config)):
         return 3
-    if dom or ru:
+    if dom or ru or ip_wl:
         return 2
     if name:
         return 1
@@ -1264,7 +1368,7 @@ async def process_source(session, url, semaphore):
         print(f"[i] SNI источника: {url}")
         print_sni_stats(configs)
 
-    # кандидаты в БС: по SNI/названию и (опционально) по IP в РФ. Строгость решается позже, по tier.
+    # кандидаты в БС: по SNI/названию и (опционально) по IP в РФ / в списке БС. Строгость решается позже, по tier.
     if WHITELIST_ONLY:
         by_domain = [c for c in configs if is_whitelist_config(c)]
         passed = set(by_domain)
@@ -1276,10 +1380,10 @@ async def process_source(session, url, semaphore):
             hp = get_host_port(c)
             if hp:
                 hosts.add(hp[0])
-        await ensure_ip_cc(session, hosts)  # нужно и для tier (РФ-вход, ASN)
+        await ensure_ip_cc(session, hosts)  # нужно и для tier (РФ-вход, ASN, IP из списка БС)
 
         if WL_ACCEPT_RU_IP:
-            by_ru_ip = [c for c in rest if entry_cc(c) == "RU"]
+            by_ru_ip = [c for c in rest if entry_cc(c) == "RU" or entry_ip_in_wl(c)]
 
         configs = by_domain + by_ru_ip
 
@@ -1292,7 +1396,7 @@ async def process_source(session, url, semaphore):
         print(f"    пропущено не-xray протоколов (hy2/tuic/ssr): {skipped_proto}")
     if WHITELIST_ONLY:
         print(f"    найдено: {total_found}, кандидатов в БС: {len(configs)} "
-              f"(по SNI/названию: {len(by_domain)}, по IP в РФ: {len(by_ru_ip)})")
+              f"(по SNI/названию: {len(by_domain)}, по IP в РФ/списке БС: {len(by_ru_ip)})")
     else:
         print(f"    найдено: {total_found}")
 
@@ -1530,6 +1634,8 @@ async def main():
     print("[i] Сбор конфигов...")
 
     async with aiohttp.ClientSession() as session:
+        await load_wl_lists(session)
+
         tasks = [process_source(session, url, semaphore) for url in SOURCES if url.strip()]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

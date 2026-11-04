@@ -88,8 +88,8 @@ MIN_PER_SOURCE = 1
 # добираются лучшие из остальных (сверху вниз по tier, потом по пингу), пока не наберётся MIN_TOTAL.
 STRICT_WL = True            # False = брать всё, что похоже на БС (tier >= 1)
 STRICT_MIN_TIER = 3         # порог «основной» части подписки
-MIN_TOTAL = 30              # минимум конфигов в подписке (без закреплённых)
-MAX_TOTAL = 0               # максимум конфигов в подписке (0 = без ограничения)
+MIN_TOTAL = 50              # минимум конфигов в подписке (без закреплённых)
+MAX_TOTAL = 80               # максимум конфигов в подписке (0 = без ограничения)
 ONLY_XRAY_PROTOCOLS = True  # True = выкинуть hysteria2/tuic/ssr (их TCP-проверка ничего не доказывает, это UDP)
 
 # ASN сервера (поле "as" из ip-api): хостеры/операторы РФ, чьи подсети чаще попадают в БС
@@ -119,7 +119,7 @@ STABILITY_MIN = 2           # сколько из них должно быть �
 STATE_FILE = Path("output/state.json")   # закоммить его вместе с sub.txt, иначе история не сохранится
 
 # --- «медленный резерв»: если после отбора меньше MIN_TOTAL, берём рабочие, но медленнее MAX_PING_MS ---
-SLOW_FILL_MAX_PING_MS = 300
+SLOW_FILL_MAX_PING_MS = 600
 
 # --- распределение по странам ---
 MAX_PER_COUNTRY = 0       # максимум ПРЯМЫХ конфигов на одну страну в итоговом файле (0 = без ограничения)
@@ -129,12 +129,12 @@ MIN_COUNTRIES_KEEP_ALL = 0 # если стран меньше N — лимит �
 KEEP_CASCADES = True
 CASCADE_ENTRY_COUNTRIES = ("RU",)
 CASCADE_LABEL = "(вход {flag} {country})"   # {flag} {country} {code}
-MAX_PING_CASCADE_MS = 350
-MAX_CASCADES_PER_SOURCE = 40
-MAX_CASCADES_PER_COUNTRY = 15
+MAX_PING_CASCADE_MS = 450
+MAX_CASCADES_PER_SOURCE = 60
+MAX_CASCADES_PER_COUNTRY = 30
 
 # --- удаление дубликатов ---
-DEDUPE_BY_EXIT_IP = True
+DEDUPE_BY_EXIT_IP = False
 
 # --- РЕЖИМ БЕЛЫХ СПИСКОВ (БС) ---
 WHITELIST_ONLY = True        # True = оставлять только конфиги белых списков
@@ -208,7 +208,7 @@ GEO_FALLBACK_WEST = (
 )
 GEO_FALLBACK_TIMEOUT = 6.0
 
-MAX_PING_MS = 120         # жёсткая отсечка для ПРЯМЫХ в основной части (медленнее — только в резерв)
+MAX_PING_MS = 200         # жёсткая отсечка для ПРЯМЫХ в основной части (медленнее — только в резерв)
 GOOD_PING_MS = 50
 
 BASE_LOCAL_PORT = 21000

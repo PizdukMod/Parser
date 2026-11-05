@@ -38,7 +38,9 @@ SOURCES = [
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLACK_LIST.txt",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BEST_LIST.txt",
     # Mifa
-    "https://mifa.world/sage",
+    "https://mifa.world/maroon",
+    # Слитые
+    "https://notfreesubnewcode.newcodevless.workers.dev/d482ba8b1903173fa87095d0ef9d86a47b9c462e672981f94cb16c92b57b2d02",
 ]
 
 

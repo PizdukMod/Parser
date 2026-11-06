@@ -59,53 +59,6 @@ jobs:
 
           echo "[+] Проверка результата пройдена"
 
-      - name: Push result to GitVerse
-        env:
-          GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
-          GITVERSE_REPO: ${{ secrets.PIZDUK_REPO }}
-        run: |
-          set -e
-
-          if [ -z "${GITVERSE_TOKEN}" ]; then
-            echo "[x] GITVERSE_TOKEN не задан"
-            exit 1
-          fi
-
-          if [ -z "${GITVERSE_REPO}" ]; then
-            echo "[x] GITVERSE_REPO не задан"
-            exit 1
-          fi
-
-          git config --global user.email "actions@bots.local"
-          git config --global user.name "sub-updater-bot"
-
-          rm -rf gitverse_repo
-
-          echo "[i] Клонирование GitVerse..."
-
-          git clone --quiet \
-            "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO#https://}" \
-            gitverse_repo
-
-          echo "[i] Обновление WlSubPiz.txt..."
-
-          cp output/sub.txt gitverse_repo/WlSubPiz.txt
-
-          cd gitverse_repo
-
-          git add WlSubPiz.txt
-
-          if git diff --cached --quiet; then
-            echo "[i] Нет изменений"
-            exit 0
-          fi
-
-          git commit \
-            -m "auto: update WlSubPiz.txt $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          git push
-
-          echo "[+] WlSubPiz.txt успешно обновлён"
       - name: Push result to GitHub Gist
         env:
           GH_TOKEN: ${{ secrets.PIZDUK_PAT }}

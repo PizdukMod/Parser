@@ -22,7 +22,7 @@ jobs:
       - name: Install deps
         run: pip install requests
 
-      - name: Build & push config
+      - name: Run bahapp
         env:
-          PIZDUK_PAT: ${{ secrets.PIZDUK_PAT }}
+           GH_TOKEN: ${{ secrets.PIZDUK_PAT }}
         run: python scripts/auto/bahapp.py

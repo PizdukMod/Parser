@@ -15,6 +15,10 @@ REPO = "PizdukVPN"
 OUTPUT_PATH = "BaHapp"
 BRANCH = "master"
 
+GIST_ID = "40450c65ccdf39c6556cebf93c8353a5"
+GIST_FILENAME = "BaHapp"
+GIST_API = f"https://api.github.com/gists/{GIST_ID}"
+
 REMARKS = "😍@PizMod🏴PizdukVPN👀Авто😎выбор"
 
 PROBE_URL = "https://www.gstatic.com/generate_204"
@@ -22,8 +26,8 @@ PROBE_INTERVAL = "1m"
 
 HEADER = ""
 
-
 TOKEN = os.environ["GITVERSE_TOKEN"]
+GH_TOKEN = os.environ["GH_TOKEN"]
 
 
 def fetch_subscription():
@@ -34,7 +38,11 @@ def fetch_subscription():
         decoded = base64.b64decode(raw + "=" * (-len(raw) % 4)).decode("utf-8")
     except Exception:
         decoded = raw
-    lines = [l.strip() for l in decoded.splitlines() if l.strip().startswith("vless://")]
+    lines = [
+        line.strip()
+        for line in decoded.splitlines()
+        if line.strip().startswith("vless://")
+    ]
     return lines
 
 
@@ -55,13 +63,14 @@ def parse_vless(link, used_tags):
         left, _, frag = body.partition("#")
         userinfo, _, hostpart = left.partition("@")
         userinfo = unquote(userinfo)
+
         try:
             uuid.UUID(userinfo)
         except ValueError:
             print("skip invalid uuid: " + frag, file=sys.stderr)
             return None
-        hostname, _, query = hostpart.partition("?")
 
+        hostname, _, query = hostpart.partition("?")
         host, _, port_raw = hostname.rpartition(":")
         port = int(port_raw.split("/", 1)[0].strip())
 
@@ -131,14 +140,18 @@ def parse_vless(link, used_tags):
 
         return outbound
     except Exception as e:
-        print("skip broken link: " + link[:60] + "... (" + str(e) + ")", file=sys.stderr)
+        print(
+            "skip broken link: " + link[:60] + "... (" + str(e) + ")",
+            file=sys.stderr,
+        )
         return None
 
 
 def build_config(outbounds):
-    all_tags = [o["tag"] for o in outbounds]
-    # серверы "только для Телеграма" не берём в автовыбор
-    tags = [t for t in all_tags if "telegram-only" not in t] or all_tags
+    all_tags = [outbound["tag"] for outbound in outbounds]
+    # Серверы "только для Телеграма" не берём в автовыбор.
+    tags = [tag for tag in all_tags if "telegram-only" not in tag] or all_tags
+
     return {
         "remarks": REMARKS,
         "log": {"loglevel": "warning"},
@@ -189,7 +202,15 @@ def build_config(outbounds):
 
 
 def push_to_gitverse(content):
-    url = GITVERSE_API + "/repos/" + OWNER + "/" + REPO + "/contents/" + OUTPUT_PATH
+    url = (
+        GITVERSE_API
+        + "/repos/"
+        + OWNER
+        + "/"
+        + REPO
+        + "/contents/"
+        + OUTPUT_PATH
+    )
     headers = {
         "Authorization": "Bearer " + TOKEN,
         "Accept": "application/vnd.gitverse.object+json; version=1",
@@ -200,6 +221,8 @@ def push_to_gitverse(content):
     r = requests.get(url, headers=headers, params={"ref": BRANCH}, timeout=20)
     if r.status_code == 200:
         sha = r.json().get("sha")
+    elif r.status_code != 404:
+        r.raise_for_status()
 
     payload = {
         "message": "auto: update config",
@@ -210,27 +233,60 @@ def push_to_gitverse(content):
         payload["sha"] = sha
 
     method = requests.put if sha else requests.post
-    resp = method(url, headers=headers, json=payload, timeout=20)
+    resp = method(url, headers=headers, json=payload, timeout=30)
     if not resp.ok:
-        print("Gitverse response:", resp.status_code, resp.text, file=sys.stderr)
+        print("GitVerse response:", resp.status_code, resp.text, file=sys.stderr)
     resp.raise_for_status()
-    print("pushed:", resp.status_code)
+    print("[+] GitVerse: pushed", resp.status_code)
+
+
+def push_to_gist(content):
+    headers = {
+        "Authorization": "Bearer " + GH_TOKEN,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    payload = {
+        "files": {
+            GIST_FILENAME: {
+                "content": content,
+            }
+        }
+    }
+
+    response = requests.patch(
+        GIST_API,
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
+    if not response.ok:
+        print("GitHub Gist response:", response.status_code, response.text, file=sys.stderr)
+    response.raise_for_status()
+    print(f"[+] GitHub Gist: updated {GIST_FILENAME}")
 
 
 def main():
     links = fetch_subscription()
+    print(f"[i] Получено VLESS-ссылок: {len(links)}")
+
     used_tags = set()
     outbounds = []
-    for l in links:
-        o = parse_vless(l, used_tags)
-        if o:
-            outbounds.append(o)
+
+    for link in links:
+        outbound = parse_vless(link, used_tags)
+        if outbound:
+            outbounds.append(outbound)
+
     if not outbounds:
         print("no valid vless links parsed, aborting", file=sys.stderr)
         sys.exit(1)
+
     config = build_config(outbounds)
     file_content = HEADER + json.dumps([config], ensure_ascii=False, indent=2)
+
     push_to_gitverse(file_content)
+    push_to_gist(file_content)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,6 @@
 name: Whapp.yml
 
 on:
-  #schedule:
-    #- cron: '0 */6 * * *'   # каждые 6 часов
   workflow_dispatch: {}      # + можно запустить руками
 
 jobs:

@@ -106,6 +106,40 @@ jobs:
           git push
 
           echo "[+] WlSubPiz.txt успешно обновлён"
+      - name: Push result to GitHub Gist
+        env:
+          GH_TOKEN: ${{ secrets.PIZDUK_PAT }}
+        run: |
+          set -e
+
+          [ -z "${GH_TOKEN}" ] && {
+            echo "[x] GH_PAT не задан"
+            exit 1
+          }
+
+          [ -f "output/sub.txt" ] || {
+            echo "[x] output/sub.txt не найден"
+            exit 1
+          }
+
+          GIST_ID="66d338db037b345022b7d827ca0112f1"
+
+          echo "[i] Обновляю GitHub Gist..."
+
+          PAYLOAD=$(jq -n \
+            --arg content "$(cat output/sub.txt)" \
+            '{files: {"wl": {content: $content}}}')
+
+          curl -sS --fail-with-body \
+            -X PATCH \
+            "https://api.github.com/gists/${GIST_ID}" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}"
+
+          echo "[+] Белый список успешно отправлен в Gist"
 
   trigger-others:
     needs: update

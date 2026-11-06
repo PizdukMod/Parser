@@ -102,51 +102,6 @@ jobs:
 
           echo "[+] Проверка результата пройдена"
 
-      - name: Push result to GitVerse
-        env:
-          GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
-          GITVERSE_REPO: ${{ secrets.PIZDUK_REPO }}
-        run: |
-          set -e
-
-          [ -z "${GITVERSE_TOKEN}" ] && { echo "[x] GITVERSE_TOKEN не задан"; exit 1; }
-          [ -z "${GITVERSE_REPO}" ] && { echo "[x] GITVERSE_REPO не задан"; exit 1; }
-
-          git config --global user.email "actions@bots.local"
-          git config --global user.name "sub-updater-bot"
-
-          rm -rf gitverse_repo
-          echo "[i] Клонирование GitVerse..."
-          git clone --quiet "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO}" gitverse_repo
-
-          cd gitverse_repo
-          BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-          for i in 1 2 3 4 5; do
-            git fetch --quiet origin "${BRANCH}"
-            git reset --hard "origin/${BRANCH}"
-
-            cp ../output/sub.txt sub.txt
-            git add sub.txt
-
-            if git diff --cached --quiet; then
-              echo "[i] Нет изменений"
-              exit 0
-            fi
-
-            git commit -m "auto: update subscription $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-            if git push origin "HEAD:${BRANCH}"; then
-              echo "[+] Подписка успешно обновлена"
-              exit 0
-            fi
-
-            echo "[!] Push отклонён, попытка $i/5, повторяю..."
-            sleep $((RANDOM % 5 + 3))
-          done
-
-          echo "[x] Не удалось запушить после 5 попыток"
-          exit 1
       - name: Push result to GitHub Gist
         env:
           GH_TOKEN: ${{ secrets.PIZDUK_PAT }}

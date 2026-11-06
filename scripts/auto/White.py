@@ -11,7 +11,7 @@ SUB_URL = "https://gist.github.com/PizdukMod/66d338db037b345022b7d827ca0112f1/ra
 
 # Gist, в который пушится результат
 GIST_ID = "5e60308decd6f5017e0ca8833d1a5832"
-GIST_FILENAME = "WLAutoPiz.txt"
+GIST_FILENAME = "WaHapp"
 GIST_API = f"https://api.github.com/gists/{GIST_ID}"
 
 REMARKS = "🐼@PizMod🐑PizdukVPN🤍Авто🐇Выбор🐻‍❄️"

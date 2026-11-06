@@ -81,6 +81,10 @@ PINNED_CONFIGS = [
     "hy2://414f501b-39d8-4bf3-9231-401cdbc50d1a@194.55.239.220:444/?hop_interval=10&sni=r-se-1.dokomon.com#🇸🇪 Швеция 📶",
     "vless://92b79c22-f68b-4713-8b21-52f264cb92f5@ee.song69.fun:2087/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ee.song69.fun&fp=firefox&security=reality&pbk=HRmmr0Ii4Tr9jPLwratvLhee3_VWFNK47T8AAo7kzww&sid=#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F",
     "vless://67c3f089-46cb-4c09-b207-524aa3fd6625@141.0.187.4:2083/?type=ws&encryption=none&flow=&path=%2Fvless-ws&security=tls&sni=speedtestmark.com&alpn=http%2F1.1&fp=chrome#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20%20YouTube%20%F0%9F%93%BA",
+    "vless://67c3f089-46cb-4c09-b207-524aa3fd6625@141.0.187.6:2083/?type=ws&encryption=none&flow=&path=%2Fvless-ws&security=tls&sni=speedtestmark.com&alpn=http%2F1.1&fp=chrome#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20%E2%9A%A1",
+    "hy2://67c3f089-46cb-4c09-b207-524aa3fd6625@141.0.187.4:8443/?hop_interval=10&sni=speedtestmark.com#🇪🇪 Эстония Hysteria",
+    "vless://67c3f089-46cb-4c09-b207-524aa3fd6625@sub-edge-08-1g.xrent.cloud:10488/?type=xhttp&encryption=none&flow=&path=%2F&mode=auto&sni=ligastavok.ru&fp=chrome&security=reality&pbk=kDEc42JBZxig3BrLD3V1ofs3oJZk15-ANWN-rM0JW10&sid=f28145401b4f633a#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%B3%D0%B8%D1%8F%20%F0%9F%93%B6",
+    "vless://67c3f089-46cb-4c09-b207-524aa3fd6625@sub-edge-05-1g.whitenw.net:20001/?type=xhttp&encryption=none&flow=&path=%2F&mode=auto&sni=ligastavok.ru&fp=chrome&security=reality&pbk=kDEc42JBZxig3BrLD3V1ofs3oJZk15-ANWN-rM0JW10&sid=f28145401b4f633a#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20%F0%9F%93%B6%20%C2%B2",
     #пропуск (не удалять!) . - , получается хуйня такая
 ]
 

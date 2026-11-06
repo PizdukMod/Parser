@@ -7,13 +7,8 @@ from urllib.parse import parse_qs, unquote
 
 import requests
 
-SUB_URL = "https://gitverse.ru/api/repos/Pizduk/PizdukVPN/raw/branch/master/sub.txt"
-
-GITVERSE_API = "https://api.gitverse.ru"
-OWNER = "Pizduk"
-REPO = "PizdukVPN"
-OUTPUT_PATH = "BaHapp"
-BRANCH = "master"
+# URL исходной подписки задаётся через GitHub Actions Secret SUB_URL
+SUB_URL = "https://Gist.github.com/PizdukMod/0270547cabecdd08527e2645f3b3672c/raw/3d6edd8c419cec45c61f8653ffa6150816981af9/sub",
 
 GIST_ID = "40450c65ccdf39c6556cebf93c8353a5"
 GIST_FILENAME = "BaHapp"
@@ -26,23 +21,27 @@ PROBE_INTERVAL = "1m"
 
 HEADER = ""
 
-TOKEN = os.environ["GITVERSE_TOKEN"]
-GH_TOKEN = os.environ["GH_TOKEN"]
+GH_TOKEN = os.environ["PIZDUK_PAT"]
 
 
 def fetch_subscription():
     r = requests.get(SUB_URL, timeout=20)
     r.raise_for_status()
     raw = r.text.strip()
+
     try:
-        decoded = base64.b64decode(raw + "=" * (-len(raw) % 4)).decode("utf-8")
+        decoded = base64.b64decode(
+            raw + "=" * (-len(raw) % 4)
+        ).decode("utf-8")
     except Exception:
         decoded = raw
+
     lines = [
         line.strip()
         for line in decoded.splitlines()
         if line.strip().startswith("vless://")
     ]
+
     return lines
 
 
@@ -50,9 +49,11 @@ def slugify_tag(name, used):
     base = name.replace(" ", "_") or "node"
     tag = base
     i = 1
+
     while tag in used:
         i += 1
         tag = base + "_" + str(i)
+
     used.add(tag)
     return tag
 
@@ -80,7 +81,11 @@ def parse_vless(link, used_tags):
         def q(key, default=""):
             return params.get(key, [default])[0]
 
-        user = {"id": userinfo, "encryption": q("encryption", "none")}
+        user = {
+            "id": userinfo,
+            "encryption": q("encryption", "none")
+        }
+
         flow = q("flow")
         if flow:
             user["flow"] = flow
@@ -117,28 +122,34 @@ def parse_vless(link, used_tags):
                 "shortId": q("sid"),
                 "spiderX": unquote(q("spx", "")),
             }
+
         elif security == "tls":
             tls = {
                 "serverName": q("sni"),
                 "fingerprint": q("fp", "chrome"),
             }
+
             alpn_raw = q("alpn")
             if alpn_raw:
                 tls["alpn"] = unquote(alpn_raw).split(",")
+
             outbound["streamSettings"]["tlsSettings"] = tls
 
         if network == "grpc":
             outbound["streamSettings"]["grpcSettings"] = {
                 "serviceName": q("serviceName", q("path", ""))
             }
+
         elif network == "ws":
             host_header = q("host", "")
+
             outbound["streamSettings"]["wsSettings"] = {
                 "path": q("path", "/"),
                 "headers": {"Host": host_header} if host_header else {},
             }
 
         return outbound
+
     except Exception as e:
         print(
             "skip broken link: " + link[:60] + "... (" + str(e) + ")",
@@ -149,8 +160,12 @@ def parse_vless(link, used_tags):
 
 def build_config(outbounds):
     all_tags = [outbound["tag"] for outbound in outbounds]
+
     # Серверы "только для Телеграма" не берём в автовыбор.
-    tags = [tag for tag in all_tags if "telegram-only" not in tag] or all_tags
+    tags = [
+        tag for tag in all_tags
+        if "telegram-only" not in tag
+    ] or all_tags
 
     return {
         "remarks": REMARKS,
@@ -168,8 +183,14 @@ def build_config(outbounds):
                 "port": 10808,
                 "listen": "127.0.0.1",
                 "protocol": "socks",
-                "settings": {"auth": "noauth", "udp": True},
-                "sniffing": {"enabled": True, "destOverride": ["http", "tls"]},
+                "settings": {
+                    "auth": "noauth",
+                    "udp": True
+                },
+                "sniffing": {
+                    "enabled": True,
+                    "destOverride": ["http", "tls"]
+                },
             },
             {
                 "tag": "http-in",
@@ -180,8 +201,16 @@ def build_config(outbounds):
             },
         ],
         "outbounds": outbounds + [
-            {"tag": "direct", "protocol": "freedom", "settings": {}},
-            {"tag": "block", "protocol": "blackhole", "settings": {}},
+            {
+                "tag": "direct",
+                "protocol": "freedom",
+                "settings": {}
+            },
+            {
+                "tag": "block",
+                "protocol": "blackhole",
+                "settings": {}
+            },
         ],
         "routing": {
             "domainStrategy": "IPIfNonMatch",
@@ -194,50 +223,19 @@ def build_config(outbounds):
                 }
             ],
             "rules": [
-                {"type": "field", "ip": ["geoip:private"], "outboundTag": "direct"},
-                {"type": "field", "network": "tcp,udp", "balancerTag": "all-servers"},
+                {
+                    "type": "field",
+                    "ip": ["geoip:private"],
+                    "outboundTag": "direct"
+                },
+                {
+                    "type": "field",
+                    "network": "tcp,udp",
+                    "balancerTag": "all-servers"
+                },
             ],
         },
     }
-
-
-def push_to_gitverse(content):
-    url = (
-        GITVERSE_API
-        + "/repos/"
-        + OWNER
-        + "/"
-        + REPO
-        + "/contents/"
-        + OUTPUT_PATH
-    )
-    headers = {
-        "Authorization": "Bearer " + TOKEN,
-        "Accept": "application/vnd.gitverse.object+json; version=1",
-        "Content-Type": "application/json",
-    }
-
-    sha = None
-    r = requests.get(url, headers=headers, params={"ref": BRANCH}, timeout=20)
-    if r.status_code == 200:
-        sha = r.json().get("sha")
-    elif r.status_code != 404:
-        r.raise_for_status()
-
-    payload = {
-        "message": "auto: update config",
-        "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
-        "branch": BRANCH,
-    }
-    if sha:
-        payload["sha"] = sha
-
-    method = requests.put if sha else requests.post
-    resp = method(url, headers=headers, json=payload, timeout=30)
-    if not resp.ok:
-        print("GitVerse response:", resp.status_code, resp.text, file=sys.stderr)
-    resp.raise_for_status()
-    print("[+] GitVerse: pushed", resp.status_code)
 
 
 def push_to_gist(content):
@@ -246,6 +244,7 @@ def push_to_gist(content):
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+
     payload = {
         "files": {
             GIST_FILENAME: {
@@ -260,8 +259,15 @@ def push_to_gist(content):
         json=payload,
         timeout=30,
     )
+
     if not response.ok:
-        print("GitHub Gist response:", response.status_code, response.text, file=sys.stderr)
+        print(
+            "GitHub Gist response:",
+            response.status_code,
+            response.text,
+            file=sys.stderr,
+        )
+
     response.raise_for_status()
     print(f"[+] GitHub Gist: updated {GIST_FILENAME}")
 
@@ -279,13 +285,20 @@ def main():
             outbounds.append(outbound)
 
     if not outbounds:
-        print("no valid vless links parsed, aborting", file=sys.stderr)
+        print(
+            "no valid vless links parsed, aborting",
+            file=sys.stderr
+        )
         sys.exit(1)
 
     config = build_config(outbounds)
-    file_content = HEADER + json.dumps([config], ensure_ascii=False, indent=2)
 
-    push_to_gitverse(file_content)
+    file_content = HEADER + json.dumps(
+        [config],
+        ensure_ascii=False,
+        indent=2
+    )
+
     push_to_gist(file_content)
 
 

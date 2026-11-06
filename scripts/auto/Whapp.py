@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, unquote
 
 import requests
 
-SUB_URL = "https://gitverse.ru/api/repos/Pizduk/PizdukVPN/raw/branch/master/WlSubPiz.txt"
+SUB_URL = "https://gist.github.com/PizdukMod/66d338db037b345022b7d827ca0112f1/raw/68f3df2d3569316d2d4e4482fbaef430065ba72a/wl"
 
 GITVERSE_API = "https://api.gitverse.ru"
 OWNER = "Pizduk"

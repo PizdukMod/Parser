@@ -53,6 +53,7 @@ jobs:
           fi
 
           COUNT=$(grep -cE '^(vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic)://' output/sub.txt || true)
+
           echo "[i] Конфигов в результате: ${COUNT}"
 
           if [ "${COUNT}" -eq 0 ]; then
@@ -62,47 +63,60 @@ jobs:
 
           echo "[+] Проверка результата пройдена"
 
-      - name: Push result to GitVerse
+      - name: Update GitHub Gist
         env:
-          GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
-          GITVERSE_REPO: ${{ secrets.PIZDUK_REPO }}
+          GIST_TOKEN: ${{ secrets.PIZDUK_PAT }}
+          GIST_ID: "7456b4e460bb7a358b8916368ee92c50"
         run: |
           set -e
 
-          [ -z "${GITVERSE_TOKEN}" ] && { echo "[x] GITVERSE_TOKEN не задан"; exit 1; }
-          [ -z "${GITVERSE_REPO}" ] && { echo "[x] GITVERSE_REPO не задан"; exit 1; }
+          if [ -z "$GIST_TOKEN" ]; then
+            echo "[x] GIST_TOKEN не задан"
+            exit 1
+          fi
 
-          git config --global user.email "actions@bots.local"
-          git config --global user.name "sub-updater-bot"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import urllib.error
 
-          rm -rf gitverse_repo
-          echo "[i] Клонирование GitVerse..."
-          git clone --quiet "https://oauth2:${GITVERSE_TOKEN}@${GITVERSE_REPO}" gitverse_repo
+          gist_id = os.environ["GIST_ID"]
+          token = os.environ["GIST_TOKEN"]
 
-          cd gitverse_repo
+          with open("output/sub.txt", "r", encoding="utf-8") as f:
+              content = f.read()
 
-          for i in 1 2 3 4 5; do
-            git fetch --quiet origin master
-            git reset --hard origin/master
+          if not content.strip():
+              raise SystemExit("[x] Файл пустой")
 
-            cp ../output/sub.txt Mixer
-            git add Mixer
+          payload = {
+              "files": {
+                  "Mixer": {
+                      "content": content
+                  }
+              }
+          }
 
-            if git diff --cached --quiet; then
-              echo "[i] Нет изменений"
-              exit 0
-            fi
+          request = urllib.request.Request(
+              f"https://api.github.com/gists/{gist_id}",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "Content-Type": "application/json"
+              },
+              method="PATCH"
+          )
 
-            git commit -m "auto: update Mixer $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-            if git push origin master; then
-              echo "[+] Mixer успешно обновлён"
-              exit 0
-            fi
-
-            echo "[!] Push отклонён, попытка $i/5, повторяю..."
-            sleep $((RANDOM % 5 + 3))
-          done
-
-          echo "[x] Не удалось запушить после 5 попыток"
-          exit 1
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  result = json.loads(response.read().decode("utf-8"))
+                  print("[+] Gist успешно обновлён")
+                  print("[i] Gist:", result["html_url"])
+          except urllib.error.HTTPError as e:
+              print("[x] Ошибка GitHub API:", e.code)
+              print(e.read().decode("utf-8"))
+              raise
+          PY

@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, unquote
 import requests
 
 # GitHub Gist с исходной подпиской
-SUB_URL = os.environ["SUB_URL"]
+SUB_URL = "https://Gist.github.com/PizdukMod/0270547cabecdd08527e2645f3b3672c/raw/3d6edd8c419cec45c61f8653ffa6150816981af9/sub",
 
 GIST_ID = "940a9c719a0088a7b9683659a6702e30"
 GIST_FILENAME = "AutoPizduk.txt"

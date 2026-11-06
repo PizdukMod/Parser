@@ -23,7 +23,7 @@ PROBE_INTERVAL = "1m"
 HEADER = ""
 
 
-GH_PAT = os.environ["PIZDUK_PAT"]
+GH_TOKEN = os.environ["GH_TOKEN"]
 
 
 def fetch_subscription():

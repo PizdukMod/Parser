@@ -7,8 +7,11 @@ from urllib.parse import parse_qs, unquote
 
 import requests
 
-# URL исходной подписки задаётся через GitHub Actions Secret SUB_URL
-SUB_URL = "https://Gist.github.com/PizdukMod/0270547cabecdd08527e2645f3b3672c/raw/3d6edd8c419cec45c61f8653ffa6150816981af9/sub",
+# URL исходной подписки (можно переопределить через env SUB_URL)
+SUB_URL = os.environ.get(
+    "SUB_URL",
+    "https://Gist.github.com/PizdukMod/0270547cabecdd08527e2645f3b3672c/raw/3d6edd8c419cec45c61f8653ffa6150816981af9/sub",
+)
 
 GIST_ID = "40450c65ccdf39c6556cebf93c8353a5"
 GIST_FILENAME = "BaHapp"
@@ -21,7 +24,9 @@ PROBE_INTERVAL = "1m"
 
 HEADER = ""
 
-GH_TOKEN = ${{ secrets.PIZDUK_PAT }}
+# Токен берётся из переменной окружения GH_TOKEN
+# (в workflow: env: GH_TOKEN: ${{ secrets.PIZDUK_PAT }})
+GH_TOKEN = os.environ.get("GH_TOKEN", "").strip()
 
 
 def fetch_subscription():
@@ -273,6 +278,13 @@ def push_to_gist(content):
 
 
 def main():
+    if not GH_TOKEN:
+        print(
+            "GH_TOKEN is not set (pass secrets.PIZDUK_PAT via env in workflow)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     links = fetch_subscription()
     print(f"[i] Получено VLESS-ссылок: {len(links)}")
 

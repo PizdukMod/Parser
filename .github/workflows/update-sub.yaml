@@ -102,7 +102,7 @@ jobs:
 
           echo "[+] Проверка результата пройдена"
 
-      - name: Push result to GitVerse
+      - name: Push result to GitVerse and Github
         env:
           GITVERSE_TOKEN: ${{ secrets.PIZDUK }}
           GITVERSE_REPO: ${{ secrets.PIZDUK_REPO }}

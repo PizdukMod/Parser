@@ -9,11 +9,10 @@ import requests
 
 SUB_URL = "https://gist.github.com/PizdukMod/66d338db037b345022b7d827ca0112f1/raw/68f3df2d3569316d2d4e4482fbaef430065ba72a/wl"
 
-GITVERSE_API = "https://api.gitverse.ru"
-OWNER = "Pizduk"
-REPO = "PizdukVPN"
-OUTPUT_PATH = "WaHapp"
-BRANCH = "master"
+# Gist, в который пушится результат
+GIST_ID = "327d7ebb42b6299ae4fd594ec1730649"
+GIST_FILENAME = "WLAutoPiz.txt"
+GIST_API = f"https://api.github.com/gists/{GIST_ID}"
 
 REMARKS = "🐼@PizMod🐑PizdukVPN🤍Авто🐇Выбор🐻‍❄️"
 
@@ -21,7 +20,6 @@ PROBE_URL = "https://www.gstatic.com/generate_204"
 PROBE_INTERVAL = "1m"
 
 HEADER = ""
-
 
 GH_TOKEN = os.environ["GH_TOKEN"]
 
@@ -188,37 +186,24 @@ def build_config(outbounds):
     }
 
 
-def push_to_gitverse(content):
-    url = GITVERSE_API + "/repos/" + OWNER + "/" + REPO + "/contents/" + OUTPUT_PATH
+def push_to_gist(content):
     headers = {
-        "Authorization": "Bearer " + TOKEN,
-        "Accept": "application/vnd.gitverse.object+json; version=1",
-        "Content-Type": "application/json",
+        "Authorization": "Bearer " + GH_TOKEN,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
+    payload = {"files": {GIST_FILENAME: {"content": content}}}
 
-    sha = None
-    r = requests.get(url, headers=headers, params={"ref": BRANCH}, timeout=20)
-    if r.status_code == 200:
-        sha = r.json().get("sha")
-
-    payload = {
-        "message": "auto: update config",
-        "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
-        "branch": BRANCH,
-    }
-    if sha:
-        payload["sha"] = sha
-
-    method = requests.put if sha else requests.post
-    resp = method(url, headers=headers, json=payload, timeout=20)
-    if not resp.ok:
-        print("Gitverse response:", resp.status_code, resp.text, file=sys.stderr)
-    resp.raise_for_status()
-    print("pushed:", resp.status_code)
+    response = requests.patch(GIST_API, headers=headers, json=payload, timeout=30)
+    if not response.ok:
+        print("GitHub Gist response:", response.status_code, response.text, file=sys.stderr)
+    response.raise_for_status()
+    print(f"[+] GitHub Gist: updated {GIST_FILENAME}")
 
 
 def main():
     links = fetch_subscription()
+    print(f"[i] Получено VLESS-ссылок: {len(links)}")
     used_tags = set()
     outbounds = []
     for l in links:
@@ -230,7 +215,7 @@ def main():
         sys.exit(1)
     config = build_config(outbounds)
     file_content = HEADER + json.dumps([config], ensure_ascii=False, indent=2)
-    push_to_gitverse(file_content)
+    push_to_gist(file_content)
 
 
 if __name__ == "__main__":

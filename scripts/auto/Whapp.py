@@ -26,7 +26,7 @@ HEADER = (
     "#support-url: https://t.me/Harachok\n"
 )
 
-GH_TOKEN = os.environ["PIZDUK_PAT"]
+GH_TOKEN = os.environ["GH_TOKEN"]
 
 
 def fetch_subscription():

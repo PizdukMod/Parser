@@ -21,7 +21,7 @@ PROBE_INTERVAL = "1m"
 
 HEADER = ""
 
-GH_TOKEN = os.environ["PIZDUK_PAT"]
+GH_TOKEN = ${{ secrets.PIZDUK_PAT }}
 
 
 def fetch_subscription():

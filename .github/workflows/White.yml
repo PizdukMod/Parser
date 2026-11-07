@@ -71,7 +71,7 @@ jobs:
           API="https://api.github.com/repos/${REPO}/contents/${FILE}"
 
           if [ -z "${GH_TOKEN}" ]; then
-            echo "[x] PIZDUK_PAT не задан"
+            echo "[x] GH_PAT не задан"
             exit 1
           fi
 
@@ -112,7 +112,7 @@ jobs:
 
           echo "[i] Загружаю новую подписку..."
 
-          curl -fsSL --fail-with-body \
+          curl -sS --fail-with-body \
             -X PUT "${API}" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
@@ -125,7 +125,7 @@ jobs:
           echo "[i] Ветка: ${BRANCH}"
           echo "[i] Файл: ${FILE}"
           echo "[i] https://github.com/${REPO}/blob/${BRANCH}/${FILE}"
-
+          
   trigger-others:
     needs: update
     runs-on: ubuntu-latest

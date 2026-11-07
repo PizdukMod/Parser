@@ -18,5 +18,5 @@ jobs:
 
       - name: Build & push config
         env:
-          GH_TOKEN: ${{ secrets.PIZDUK_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: python scripts/auto/White.py

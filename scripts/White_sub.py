@@ -36,12 +36,6 @@ SOURCES = [
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/WHITE_LIST.txt",
     "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/wl",
     "https://hub.mos.ru/kfwl/auto/raw/main/wl",
-    "https://gitverse.ru/api/repos/Benss/Vless/raw/branch/master/new_file",
-    "https://raw.githubusercontent.com/linspisokobhod/linspisokobhod.github.io/refs/heads/main/sub/LTE.txt",
-    "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
-    "https://bobrrvpn.neocities.org/whitelist.txt",
-    "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/whitelist_vpn.txt",
-    "https://raw.githubusercontent.com/wlunlocker/vpn-configs/main/whitelist_all.txt",
 ]
 
 

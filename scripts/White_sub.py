@@ -2,13 +2,13 @@
 
 import asyncio
 import aiohttp
-import aiohttp_socks
 import base64
 import bisect
 import hashlib
 import ipaddress
 import json
 import socket
+import ssl
 import statistics
 import tempfile
 import os
@@ -76,8 +76,30 @@ PINNED_CONFIGS = [
 # НАСТРОЙКИ
 # ============================================================
 
-MAX_PER_SOURCE = 1000
+MAX_PER_SOURCE = 50
 MIN_PER_SOURCE = 1
+
+# --- РЕЖИМ ПРОВЕРКИ ---
+# False = БЕЗ Xray: проверка только с самого раннера (TCP-соединение несколько раз + TLS-рукопожатие).
+#         Xray и aiohttp_socks не нужны. Если раннер стоит в РФ (Gitverse / Hub.mos.ru) —
+#         значит, проверяется именно доступность из РФ (из БС).
+# True  = как раньше: поднимать xray и ходить через каждый конфиг (точнее, но тяжелее; даёт выходной IP и каскады).
+USE_XRAY = False
+
+# --- проверка без Xray ---
+TCP_PROBE_COUNT = 3         # сколько раз подключиться к серверу
+TCP_PROBE_MIN_OK = 2        # сколько подключений должно пройти; пинг = медиана успешных
+TCP_PROBE_TIMEOUT = 3.0     # таймаут одного подключения, сек (с РФ-раннера до зарубежья бывает медленно)
+TCP_PROBE_PAUSE = 0.15      # пауза между подключениями
+TCP_MODE_CONCURRENCY = 200  # одновременных проверок (xray не запускается — можно много)
+
+TLS_PROBE = True            # после TCP попробовать TLS-рукопожатие с SNI конфига (для security=tls/reality)
+TLS_PROBE_TIMEOUT = 4.0
+TLS_AFFECTS_TIER = False    # True = провал TLS-рукопожатия снижает tier на 1; False = только пометка в логе
+                            # (REALITY-серверы иногда не отвечают на «чужие» рукопожатия, поэтому по умолчанию мягко)
+
+RUNNER_GEO_CHECK = True     # в начале вывести страну раннера (чтобы видеть, что проверка идёт из РФ)
+REQUIRE_RU_RUNNER = False   # True = если раннер не в РФ, предупредить громко (проверка не отражает доступность из БС)
 
 # --- СТРОГИЙ РЕЖИМ БС + ГАРАНТИЯ КОЛИЧЕСТВА ---
 # Каждому конфигу ставится уровень доверия к «это правда БС» (tier):
@@ -100,12 +122,12 @@ ASN_WL_KEYWORDS = (
     "rostelecom", "mts", "megafon", "beeline", "vimpelcom", "tele2", "rtcomm",
 )
 
-# --- многократная проверка ---
+# --- многократная проверка (только USE_XRAY = True) ---
 PROBE_COUNT = 3             # сколько запросов через прокси
 PROBE_MIN_OK = 2            # сколько из них должно пройти; пинг = медиана успешных
 CHECK_ATTEMPTS = 2          # повтор, если xray просто не успел стартовать (не битый конфиг)
 
-DATA_CHECK = True           # скачать небольшой файл через прокси: рукопожатие есть, а данные идут?
+DATA_CHECK = True           # (только USE_XRAY) скачать небольшой файл через прокси: рукопожатие есть, а данные идут?
 DATA_URLS = (
     "https://speed.cloudflare.com/__down?bytes=65536",
     "https://httpbin.org/bytes/65536",
@@ -128,6 +150,7 @@ MAX_PER_COUNTRY = 0       # максимум ПРЯМЫХ конфигов на 
 MIN_COUNTRIES_KEEP_ALL = 0 # если стран меньше N — лимит по стране не применяется (0 = выключено)
 
 # --- КАСКАДЫ (вход в РФ -> выход в другой стране) ---
+# Работает только при USE_XRAY = True (без xray выходной IP неизвестен, каскады не определяются)
 KEEP_CASCADES = True
 CASCADE_ENTRY_COUNTRIES = ("RU",)
 CASCADE_LABEL = "(вход {flag} {country})"   # {flag} {country} {code}
@@ -613,7 +636,7 @@ def entry_asn_ok(config):
 
 
 def is_cascade(config):
-    if not KEEP_CASCADES:
+    if not KEEP_CASCADES or not USE_XRAY:
         return False
     info = EXIT_GEO.get(config)
     if not info or not info[0]:
@@ -761,7 +784,7 @@ def wl_tier(config):
 
 STATE = {}      # хэш сервера -> [0/1, ...] последние запуски
 RESULTS = {}    # config -> прошёл проверку в этом запуске
-DATA_OK = {}    # config -> прошла ли проверка передачи данных
+DATA_OK = {}    # config -> прошла ли проверка передачи данных (xray) / TLS-рукопожатия (без xray)
 SLOW_POOL = []  # (config, latency): рабочие, но медленнее порогов основной части
 SLOW_SET = set()
 
@@ -808,10 +831,16 @@ def save_state():
         print(f"[!] Не удалось сохранить историю: {e}")
 
 
+def data_penalty_enabled():
+    if USE_XRAY:
+        return DATA_CHECK
+    return TLS_PROBE and TLS_AFFECTS_TIER
+
+
 def eff_tier(config):
-    """Итоговый уровень: tier минус штрафы за провал проверки данных и нестабильность."""
+    """Итоговый уровень: tier минус штрафы за провал проверки данных/TLS и нестабильность."""
     t = wl_tier(config)
-    if DATA_CHECK and not DATA_OK.get(config, True):
+    if data_penalty_enabled() and not DATA_OK.get(config, True):
         t -= 1
     if not is_stable(config):
         t -= 1
@@ -819,7 +848,7 @@ def eff_tier(config):
 
 
 # ============================================================
-# ПОСТРОЕНИЕ XRAY-КОНФИГА ИЗ URI
+# ПОСТРОЕНИЕ XRAY-КОНФИГА ИЗ URI (нужно только при USE_XRAY = True)
 # ============================================================
 
 def build_stream_settings(params, default_host):
@@ -994,7 +1023,7 @@ def build_outbound(line):
 
 
 # ============================================================
-# ПУЛ ЛОКАЛЬНЫХ ПОРТОВ
+# ПУЛ ЛОКАЛЬНЫХ ПОРТОВ (только USE_XRAY)
 # ============================================================
 
 _port_counter = itertools.count(BASE_LOCAL_PORT)
@@ -1007,7 +1036,7 @@ def init_port_pool(n):
 
 
 # ============================================================
-# РЕАЛЬНЫЙ ВЫХОДНОЙ IP: гео через сам прокси
+# РЕАЛЬНЫЙ ВЫХОДНОЙ IP: гео через сам прокси (только USE_XRAY)
 # ============================================================
 
 async def fetch_exit_geo(session):
@@ -1092,11 +1121,108 @@ async def wait_port(proc, port, timeout):
 
 
 # ============================================================
-# РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY
+# ПРОВЕРКА БЕЗ XRAY: несколько TCP-подключений + TLS-рукопожатие с SNI
+# Возвращает пинг_мс | None. Проверка идёт с самого раннера
+# (на раннере в РФ — это проверка доступности из РФ / из БС).
+# ============================================================
+
+def _security_of(line):
+    """'tls' / 'reality' / 'none' — по ссылке."""
+    if line.startswith("vmess://"):
+        data = b64decode_safe(line[len("vmess://"):])
+        try:
+            obj = json.loads(data)
+            return "tls" if str(obj.get("tls", "")).lower() == "tls" else "none"
+        except Exception:
+            return "none"
+    try:
+        params = query_params(urlparse(line))
+    except Exception:
+        return "none"
+    sec = (first(params, "security") or "").lower()
+    if sec in ("tls", "reality"):
+        return sec
+    if line.startswith("trojan://") and sec in ("", "none") and not first(params, "security"):
+        return "tls"   # trojan по умолчанию идёт поверх TLS
+    return "none"
+
+
+def _network_of(line):
+    if line.startswith("vmess://"):
+        data = b64decode_safe(line[len("vmess://"):])
+        try:
+            return str(json.loads(data).get("net", "tcp")).lower()
+        except Exception:
+            return "tcp"
+    try:
+        params = query_params(urlparse(line))
+    except Exception:
+        return "tcp"
+    return (first(params, "type", "network", "net") or "tcp").lower()
+
+
+async def tls_probe(host, port, sni):
+    """True, если сервер ответил на TLS ClientHello рукопожатием с данным SNI."""
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port, ssl=ctx, server_hostname=sni or None,
+                                    ssl_handshake_timeout=TLS_PROBE_TIMEOUT),
+            timeout=TLS_PROBE_TIMEOUT + 1.0,
+        )
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+
+async def tcp_mode_check(line):
+    """Проверка без Xray. Пинг = медиана успешных TCP-подключений."""
+    if _UDP_NET_RE.search(line) or _network_of(line) in ("kcp", "mkcp", "quic"):
+        return None   # по TCP такие конфиги не проверить
+
+    hp = get_host_port(line)
+    if not hp:
+        return None
+    host, port = hp
+
+    lats = []
+    fails = 0
+    for i in range(TCP_PROBE_COUNT):
+        lat = await tcp_check(host, port, TCP_PROBE_TIMEOUT)
+        if lat is None:
+            fails += 1
+            if fails > TCP_PROBE_COUNT - TCP_PROBE_MIN_OK:
+                return None
+        else:
+            lats.append(lat)
+        if i < TCP_PROBE_COUNT - 1:
+            await asyncio.sleep(TCP_PROBE_PAUSE)
+
+    if len(lats) < TCP_PROBE_MIN_OK:
+        return None
+
+    if TLS_PROBE and _security_of(line) in ("tls", "reality"):
+        sni = get_sni(line) or host
+        DATA_OK[line] = await tls_probe(host, port, sni)
+
+    return statistics.median(lats)
+
+
+# ============================================================
+# РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ XRAY (только USE_XRAY = True)
 # Возвращает (пинг_мс | None, xray_не_успел_стартовать)
 # ============================================================
 
 async def xray_real_check(line, startup_max):
+    import aiohttp_socks  # импорт лениво: без xray библиотека не нужна
+
     outbound = build_outbound(line)
     if not outbound:
         return None, False
@@ -1204,6 +1330,11 @@ async def fallback_check(line):
 
 
 async def check_config(line):
+    if not USE_XRAY:
+        if line.startswith(XRAY_SUPPORTED):
+            return await tcp_mode_check(line)
+        return await fallback_check(line)
+
     if line.startswith(XRAY_SUPPORTED):
         for attempt in range(CHECK_ATTEMPTS):
             latency, slow_start = await xray_real_check(line, XRAY_STARTUP_MAX * (1 + attempt))
@@ -1319,6 +1450,40 @@ async def fallback_geo(session, host):
                 return code, make_geo_name(code, city), f"{group}:{name}"
 
     return None
+
+
+# ============================================================
+# СТРАНА РАННЕРА (откуда реально идёт проверка)
+# ============================================================
+
+async def print_runner_geo(session):
+    timeout = aiohttp.ClientTimeout(total=8.0)
+    info = None
+    for url in ("http://ip-api.com/json/?fields=status,countryCode,city,query",
+                "https://ipwho.is/"):
+        try:
+            async with session.get(url, timeout=timeout) as r:
+                if r.status != 200:
+                    continue
+                d = await r.json(content_type=None)
+                cc = d.get("countryCode") or d.get("country_code")
+                if cc:
+                    info = (cc.upper(), d.get("city") or "", d.get("query") or d.get("ip") or "")
+                    break
+        except Exception:
+            continue
+
+    if not info:
+        print("[i] Не удалось определить страну раннера")
+        return
+
+    cc, city, ip = info
+    print(f"[i] Проверка идёт с раннера: {get_country_flag(cc)} {get_country_name(cc)} {city} ({ip})")
+    if cc != "RU":
+        msg = "[!] Раннер НЕ в РФ — TCP-проверка не отражает доступность из БС"
+        print(msg)
+        if REQUIRE_RU_RUNNER:
+            print("[!] REQUIRE_RU_RUNNER = True — результаты могут быть недостоверными")
 
 
 # ============================================================
@@ -1448,15 +1613,16 @@ async def process_source(session, url, semaphore):
                 exit_info = EXIT_GEO.get(config)
                 exit_txt = f", выход {exit_info[2]} {exit_info[1]}" if exit_info else ""
                 data_txt = ""
-                if DATA_CHECK and config in DATA_OK:
-                    data_txt = ", данные ✓" if DATA_OK[config] else ", данные ✗"
+                if config in DATA_OK and (USE_XRAY and DATA_CHECK or not USE_XRAY and TLS_PROBE):
+                    label = "данные" if USE_XRAY else "TLS"
+                    data_txt = f", {label} ✓" if DATA_OK[config] else f", {label} ✗"
                 print(f"    [✓] {mark} рабочий, пинг {latency:.0f} мс{exit_txt}{data_txt}")
     finally:
         for task in tasks:
             if not task.done():
                 task.cancel()
 
-    if KEEP_CASCADES and working:
+    if KEEP_CASCADES and USE_XRAY and working:
         hosts = set()
         for c, _ in working:
             hp = get_host_port(c)
@@ -1623,8 +1789,14 @@ def print_country_distribution(stats):
 
 async def main():
     load_state()
-    init_port_pool(CONCURRENCY)
-    semaphore = asyncio.Semaphore(CONCURRENCY)
+
+    if USE_XRAY:
+        init_port_pool(CONCURRENCY)
+        semaphore = asyncio.Semaphore(CONCURRENCY)
+        print("[i] Режим проверки: Xray (реальный трафик через прокси)")
+    else:
+        semaphore = asyncio.Semaphore(TCP_MODE_CONCURRENCY)
+        print("[i] Режим проверки: без Xray (TCP + TLS-рукопожатие, прямо с раннера)")
 
     pinned = [c.strip() for c in PINNED_CONFIGS if c.strip() and not is_blocked(c)]
     _seen_keys.update(dedupe_key(c) for c in pinned if c.startswith(PROTOCOLS))
@@ -1634,6 +1806,9 @@ async def main():
     print("[i] Сбор конфигов...")
 
     async with aiohttp.ClientSession() as session:
+        if RUNNER_GEO_CHECK and not USE_XRAY:
+            await print_runner_geo(session)
+
         await load_wl_lists(session)
 
         tasks = [process_source(session, url, semaphore) for url in SOURCES if url.strip()]
@@ -1676,7 +1851,7 @@ async def main():
         selected = select_final(pool)
 
         print()
-        print("[i] Определяем страну и город (реальный выходной IP)...")
+        print("[i] Определяем страну и город...")
 
         geo_entries = []
         geo_cache = {}

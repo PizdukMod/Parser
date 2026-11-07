@@ -38,7 +38,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/White_List.txt",
     # Mifa
-    "https://mifa.world/stamp",
+    "https://mifa.world/strix",
     # Слитые
     "https://notfreesubnewcode.newcodevless.workers.dev/d482ba8b1903173fa87095d0ef9d86a47b9c462e672981f94cb16c92b57b2d02",
     "https://pozor.bond/sub/1aaf4adfea7841db8344",

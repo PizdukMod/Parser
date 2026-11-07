@@ -10,12 +10,16 @@ import requests
 # URL исходной подписки (можно переопределить через env SUB_URL)
 SUB_URL = os.environ.get(
     "SUB_URL",
-    "https://Gist.github.com/PizdukMod/0270547cabecdd08527e2645f3b3672c/raw/3d6edd8c419cec45c61f8653ffa6150816981af9/sub",
+    "https://github.com/PizdukMod/PizdukVPN/raw/refs/heads/main/suB.auto2",
 )
 
-GIST_ID = "40450c65ccdf39c6556cebf93c8353a5"
-GIST_FILENAME = "BaHapp"
-GIST_API = f"https://api.github.com/gists/{GIST_ID}"
+REPO = "PizdukMod/PizdukVPN"
+BRANCH = "main"
+FILE_PATH = "suB.auto2"
+
+GITHUB_API = (
+    f"https://api.github.com/repos/{REPO}/contents/{FILE_PATH}"
+)
 
 REMARKS = "😍@PizMod🏴PizdukVPN👀Авто😎выбор"
 

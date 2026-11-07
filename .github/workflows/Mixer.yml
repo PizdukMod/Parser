@@ -63,60 +63,69 @@ jobs:
 
           echo "[+] Проверка результата пройдена"
 
-      - name: Update GitHub Gist
+      - name: Push result to PizdukVPN repository
         env:
-          GIST_TOKEN: ${{ secrets.PIZDUK_PAT }}
-          GIST_ID: "7456b4e460bb7a358b8916368ee92c50"
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -e
 
-          if [ -z "$GIST_TOKEN" ]; then
-            echo "[x] GIST_TOKEN не задан"
+          REPO="PizdukMod/PizdukVPN"
+          BRANCH="main"
+          FILE="Mixer"
+          API="https://api.github.com/repos/${REPO}/contents/${FILE}"
+
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "[x] PIZDUK_PAT не задан"
             exit 1
           fi
 
-          python - <<'PY'
-          import json
-          import os
-          import urllib.request
-          import urllib.error
+          if [ ! -f "output/sub.txt" ]; then
+            echo "[x] output/sub.txt не найден"
+            exit 1
+          fi
 
-          gist_id = os.environ["GIST_ID"]
-          token = os.environ["GIST_TOKEN"]
+          echo "[i] Получаю SHA существующего файла..."
 
-          with open("output/sub.txt", "r", encoding="utf-8") as f:
-              content = f.read()
+          RESPONSE=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${API}?ref=${BRANCH}")
 
-          if not content.strip():
-              raise SystemExit("[x] Файл пустой")
+          SHA=$(echo "${RESPONSE}" | jq -r '.sha')
 
-          payload = {
-              "files": {
-                  "Mixer": {
-                      "content": content
-                  }
-              }
-          }
+          if [ -z "${SHA}" ] || [ "${SHA}" = "null" ]; then
+            echo "[x] Не удалось получить SHA файла"
+            exit 1
+          fi
 
-          request = urllib.request.Request(
-              f"https://api.github.com/gists/{gist_id}",
-              data=json.dumps(payload).encode("utf-8"),
-              headers={
-                  "Authorization": f"Bearer {token}",
-                  "Accept": "application/vnd.github+json",
-                  "X-GitHub-Api-Version": "2022-11-28",
-                  "Content-Type": "application/json"
-              },
-              method="PATCH"
-          )
+          echo "[i] Кодирую подписку..."
 
-          try:
-              with urllib.request.urlopen(request, timeout=60) as response:
-                  result = json.loads(response.read().decode("utf-8"))
-                  print("[+] Gist успешно обновлён")
-                  print("[i] Gist:", result["html_url"])
-          except urllib.error.HTTPError as e:
-              print("[x] Ошибка GitHub API:", e.code)
-              print(e.read().decode("utf-8"))
-              raise
-          PY
+          CONTENT=$(base64 -w 0 output/sub.txt)
+
+          PAYLOAD=$(jq -n \
+            --arg message "Update VPN subscription" \
+            --arg content "${CONTENT}" \
+            --arg branch "${BRANCH}" \
+            --arg sha "${SHA}" \
+            '{
+              message: $message,
+              content: $content,
+              branch: $branch,
+              sha: $sha
+            }')
+
+          echo "[i] Загружаю новую подписку..."
+
+          curl -fsSL --fail-with-body \
+            -X PUT "${API}" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}" > response.json
+
+          echo "[+] Репозиторий успешно обновлён!"
+          echo "[i] Репозиторий: ${REPO}"
+          echo "[i] Ветка: ${BRANCH}"
+          echo "[i] Файл: ${FILE}"
+          echo "[i] https://github.com/${REPO}/blob/${BRANCH}/${FILE}"

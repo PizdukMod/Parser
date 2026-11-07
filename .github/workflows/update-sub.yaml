@@ -102,43 +102,73 @@ jobs:
 
           echo "[+] Проверка результата пройдена"
 
-      - name: Push result to GitHub Gist
+      - name: Push result to PizdukVPN repository
         env:
           GH_TOKEN: ${{ secrets.PIZDUK_PAT }}
         run: |
           set -e
 
-          [ -z "${GH_TOKEN}" ] && {
-            echo "[x] GH_PAT не задан"
-            exit 1
-          }
+          REPO="PizdukMod/PizdukVPN"
+          BRANCH="main"
+          FILE="sub"
+          API="https://api.github.com/repos/${REPO}/contents/${FILE}"
 
-          [ -f "output/sub.txt" ] || {
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "[x] PIZDUK_PAT не задан"
+            exit 1
+          fi
+
+          if [ ! -f "output/sub.txt" ]; then
             echo "[x] output/sub.txt не найден"
             exit 1
-          }
+          fi
 
-          GIST_ID="0270547cabecdd08527e2645f3b3672c"
+          echo "[i] Получаю SHA существующего файла..."
 
-          echo "[i] Подготавливаю обновление Gist..."
+          RESPONSE=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${API}?ref=${BRANCH}")
+
+          SHA=$(echo "${RESPONSE}" | jq -r '.sha')
+
+          if [ -z "${SHA}" ] || [ "${SHA}" = "null" ]; then
+            echo "[x] Не удалось получить SHA файла"
+            exit 1
+          fi
+
+          echo "[i] Кодирую подписку..."
+
+          CONTENT=$(base64 -w 0 output/sub.txt)
 
           PAYLOAD=$(jq -n \
-            --arg content "$(cat output/sub.txt)" \
-            '{files: {"sub": {content: $content}}}')
+            --arg message "Update VPN subscription" \
+            --arg content "${CONTENT}" \
+            --arg branch "${BRANCH}" \
+            --arg sha "${SHA}" \
+            '{
+              message: $message,
+              content: $content,
+              branch: $branch,
+              sha: $sha
+            }')
 
-          RESPONSE=$(curl -sS --fail-with-body \
-            -X PATCH \
-            "https://api.github.com/gists/${GIST_ID}" \
+          echo "[i] Загружаю новую подписку..."
+
+          curl -fsSL --fail-with-body \
+            -X PUT "${API}" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             -H "Content-Type: application/json" \
-            -d "${PAYLOAD}")
+            -d "${PAYLOAD}" > response.json
 
-          echo "[+] GitHub Gist успешно обновлён!"
-          echo "[i] Файл: sub"
-          echo "[i] Gist: https://gist.github.com/PizdukMod/${GIST_ID}"
-
+          echo "[+] Репозиторий успешно обновлён!"
+          echo "[i] Репозиторий: ${REPO}"
+          echo "[i] Ветка: ${BRANCH}"
+          echo "[i] Файл: ${FILE}"
+          echo "[i] https://github.com/${REPO}/blob/${BRANCH}/${FILE}"
+  
   trigger-others:
     needs: update
     runs-on: ubuntu-latest

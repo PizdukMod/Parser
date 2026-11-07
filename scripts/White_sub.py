@@ -30,7 +30,6 @@ SOURCES = [
     "https://gitverse.ru/api/repos/SlavaKat/FreeProxyNova/raw/branch/master/🆓ProxyNova ❯ 🗽🕊✊ Ручной выбор Обход БС (Тест)",
     "https://gitverse.ru/api/repos/gidro/white/raw/branch/master/subscription.txt",
     "https://raw.githubusercontent.com/btsk161/Freeinternet_byMygalaru.github.io/refs/heads/main/premium.txt",
-    "https://raw.githubusercontent.com/ksenkovsolo/HardVPN-bypass-WhiteLists-/refs/heads/main/vpn-lte/best_keys.txt",
     "https://raw.githubusercontent.com/gazeta404/rain_vpn_bs/main/bs.txt",
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-white-list-lite/refs/heads/main/AetrisVPN.txt",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/WHITE_LIST.txt",
@@ -78,7 +77,7 @@ MIN_PER_SOURCE = 1
 #         Xray и aiohttp_socks не нужны. Если раннер стоит в РФ (Gitverse / Hub.mos.ru) —
 #         значит, проверяется именно доступность из РФ (из БС).
 # True  = как раньше: поднимать xray и ходить через каждый конфиг (точнее, но тяжелее; даёт выходной IP и каскады).
-USE_XRAY = False
+USE_XRAY = True
 
 # --- проверка без Xray ---
 TCP_PROBE_COUNT = 3         # сколько раз подключиться к серверу

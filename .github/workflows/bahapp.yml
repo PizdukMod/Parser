@@ -24,5 +24,5 @@ jobs:
 
       - name: Run bahapp
         env:
-           GH_TOKEN: ${{ secrets.PIZDUK_PAT }}
+           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: python scripts/auto/bahapp.py

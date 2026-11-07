@@ -28,7 +28,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev",
-    "https://mifa.world/stamp",
+    "https://mifa.world/strix",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt",
     "https://pozor.bond/sub/free-sub-forza-obxod",
     "https://pozor.bond/sub/1aaf4adfea7841db8344",

@@ -12,11 +12,11 @@ SUB_URL = "https://github.com/PizdukMod/PizdukVPN/raw/refs/heads/main/wl"
 
 REPO = "PizdukMod/PizdukVPN"
 BRANCH = "main"
-FILE_PATH = 'sub.auto'
+FILE_PATH = 'wl.auto'
 
 GITHUB_API = f"https://api.github.com/repos/{REPO}/contents/{FILE_PATH}"
 
-REMARKS = '🏳PizdukVPN🤍Авто🐇Выбор🐻\u200d❄️'
+REMARKS = '🏳PizdukVPN🤍Авто🐇Выбор❄️'
 
 PROBE_URL = "https://www.gstatic.com/generate_204"
 PROBE_INTERVAL = "1m"

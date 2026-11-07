@@ -7,12 +7,15 @@ from urllib.parse import parse_qs, unquote
 
 import requests
 
-SUB_URL = "https://gist.github.com/PizdukMod/66d338db037b345022b7d827ca0112f1/raw/68f3df2d3569316d2d4e4482fbaef430065ba72a/wl"
+SUB_URL = "https://github.com/PizdukMod/PizdukVPN/raw/refs/heads/main/wl"
 
-# Gist, в который пушится результат
-GIST_ID = "5e60308decd6f5017e0ca8833d1a5832"
-GIST_FILENAME = "WaHapp"
-GIST_API = f"https://api.github.com/gists/{GIST_ID}"
+REPO = "PizdukMod/PizdukVPN"
+BRANCH = "main"
+FILE_PATH = "wl.auto"
+
+GITHUB_API = (
+    f"https://api.github.com/repos/{REPO}/contents/{FILE_PATH}"
+)
 
 REMARKS = "🐼@PizMod🐑PizdukVPN🤍Авто🐇Выбор🐻‍❄️"
 

@@ -11,7 +11,7 @@ SUB_URL = "https://github.com/PizdukMod/PizdukVPN/raw/refs/heads/main/wl"
 
 REPO = "PizdukMod/PizdukVPN"
 BRANCH = "main"
-FILE_PATH = "wl.auto"
+FILE_PATH = "wl.auto2"
 
 GITHUB_API = (
     f"https://api.github.com/repos/{REPO}/contents/{FILE_PATH}"

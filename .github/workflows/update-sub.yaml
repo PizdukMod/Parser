@@ -104,7 +104,7 @@ jobs:
 
       - name: Push result to PizdukVPN repository
         env:
-          GH_TOKEN: ${{ secrets.PIZDUK_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -e
 

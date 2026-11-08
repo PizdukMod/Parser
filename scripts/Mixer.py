@@ -29,8 +29,6 @@ from urllib.parse import urlparse, parse_qs, parse_qsl, unquote, quote
 SOURCES = [
     # Большие
     "https://freevpn.happcluchi.workers.dev",
-    "https://quorteam.vspboost.ru/1oRtg1/QuorVPN",
-    "https://pozor.bond/sub/free-sub-forza-obxod",
     # РКП
     "https://gidroksi.fun/black-list",
     "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/bl",
@@ -38,11 +36,9 @@ SOURCES = [
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/White_List.txt",
     # Mifa
-    "https://mifa.world/strix",
+    "https://mifa.world/binom",
     # Слитые
     "https://notfreesubnewcode.newcodevless.workers.dev/d482ba8b1903173fa87095d0ef9d86a47b9c462e672981f94cb16c92b57b2d02",
-    "https://pozor.bond/sub/1aaf4adfea7841db8344",
-    "https://pozor.bond/sub/iec866xltkbq",
 ]
 
 

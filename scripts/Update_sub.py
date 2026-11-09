@@ -114,7 +114,7 @@ FETCH_HEADERS_LIST = [     # User-Agent меняется от попытки к 
 
 CONCURRENCY = 15           # одновременных xray/sing-box процессов
 XRAY_STARTUP_TIMEOUT = 6.0 # сек: максимум ждём, пока ядро откроет локальный порт
-XRAY_TEST_TIMEOUT = 8.0    # сек на ОДИН тестовый запрос через прокси
+XRAY_TEST_TIMEOUT = 10.0   # сек на ОДИН тестовый запрос через прокси (было 8)
 XRAY_BINARY = "xray"       # должен быть в PATH
 
 # --- Hy2 (проверяется через sing-box, т.к. это UDP/QUIC) ---
@@ -129,14 +129,25 @@ TEST_URLS = [
     "https://www.google.com/generate_204",
 ]
 
-# Строгая проверка: КАЖДЫЙ тестовый URL должен ответить в КАЖДОМ раунде.
+# --- БЫСТРАЯ xray-проверка (сразу после TCP, до полной) ---
+# Поднимает ядро и делает пару лёгких запросов. Отсеивает конфиги, у которых
+# порт открыт, но сам прокси не работает (неверный ключ, мёртвый reality и т.п.),
+# чтобы не тратить на них долгую полную проверку.
+QUICK_CHECK = True
+QUICK_URLS = TEST_URLS[:2]  # какие URL дёргаем
+QUICK_TIMEOUT = 6.0         # сек на запрос
+QUICK_MIN_OK = 1            # сколько из QUICK_URLS должны ответить
+QUICK_CONCURRENCY = 30      # одновременных ядер (проверка лёгкая)
+
+# Проверка: тестовые URL должны отвечать в раундах, но одиночный сбой прощается.
 # Первый раунд — «холодный» (рукопожатие), остальные — «тёплые», по ним считается пинг.
-CHECK_ROUNDS = 3
+CHECK_ROUNDS = 2            # (было 3)
+TEST_MAX_FAILS = 1          # сколько запросов в раундах/keep-alive можно провалить (было 0)
 
 # --- Защита от «соединение закрыто» и тайм-аутов ---
 IDLE_PAUSE = 2.0            # пауза перед повторным запросом по тому же соединению
 BURST_PARALLEL = 8          # параллельных запросов на новых соединениях
-BURST_MAX_FAILS = 0         # сколько из них можно провалить
+BURST_MAX_FAILS = 2         # сколько из них можно провалить (было 0)
 
 # --- Скачивание ---
 DOWNLOAD_URLS = [           # достаточно, чтобы прошёл ХОТЯ БЫ ОДИН
@@ -146,26 +157,28 @@ DOWNLOAD_URLS = [           # достаточно, чтобы прошёл ХО
 DOWNLOAD_BYTES = 1_000_000
 DOWNLOAD_TIMEOUT = 15.0
 REQUIRE_DOWNLOAD = True     # False — если раннер не достаёт до DOWNLOAD_URLS
-DOWNLOAD_MAX_MS = 7000      # 1 МБ дольше этого — слишком медленно
+DOWNLOAD_MAX_MS = 10000     # 1 МБ дольше этого — слишком медленно (было 7000)
 SPEED_WEIGHT = 0.1          # вклад времени загрузки/отдачи в итоговый балл (ниже = лучше)
 
 # --- Отдача (upload): ловит «полусломанные» туннели, где вниз идёт, а вверх нет ---
 UPLOAD_URL = "https://speed.cloudflare.com/__up"
 UPLOAD_BYTES = 256 * 1024
 UPLOAD_TIMEOUT = 15.0
-UPLOAD_MAX_MS = 6000
+UPLOAD_MAX_MS = 9000        # (было 6000)
 REQUIRE_UPLOAD = True       # False — если раннер не достаёт до UPLOAD_URL
 
 # --- Доступ к заблокированным сайтам (главное для ЧС-подписки) ---
+# Telegram СПЕЦИАЛЬНО убран: среди серверов много «telegram-only», они открывают
+# api.telegram.org, но больше ничего. Доверяем только остальным сайтам.
 BLOCKED_URLS = [
     "https://www.youtube.com/generate_204",
     "https://www.tiktok.com/",
-    "https://api.telegram.org/",
+    "https://www.instagram.com/",
 ]
-MIN_BLOCKED_OK = 2          # сколько из BLOCKED_URLS должны открыться (0 = не проверять)
+MIN_BLOCKED_OK = 1          # сколько из BLOCKED_URLS должны открыться (0 = не проверять; было 2)
 
 # --- Стабильность ---
-MAX_JITTER = 2.5            # макс/мин пинг в тёплых раундах (+100 мс запаса)
+MAX_JITTER = 4.0            # макс/мин пинг в тёплых раундах (+100 мс запаса; было 2.5)
 REQUIRE_STABLE_EXIT_IP = True   # выходной IP не должен «плавать» между запросами
 
 # --- Cloudflare trace: выходной IP + страна ПРЯМО через прокси (без лимитов гео-сервисов) ---
@@ -185,7 +198,8 @@ IP_ECHO_URLS = [
 ]
 REQUIRE_EXIT_IP = True      # не получили выходной IP или он = нашему → конфиг нерабочий
 DEDUPE_BY_EXIT_IP = True    # дубли по реальному выходному IP
-MAX_PER_SUBNET = 5          # максимум серверов из одной подсети /24 (0 = без лимита):
+DEDUPE_BY_SETTINGS = True   # дубли: те же host:port и настройки, но разные uuid/пароли
+MAX_PER_SUBNET = 6          # максимум серверов из одной подсети /24 (0 = без лимита; было 5):
                             # «фермы» из одной подсети разом падают/блокируются
 
 # --- Проверка «из России» ---
@@ -206,10 +220,23 @@ RU_FAIL_OPEN = True         # check-host недоступен -> не отбра
 # Повторная проверка лучших кандидатов отдельным запуском ядра:
 # отсекает «мигающие» серверы, которые прошли проверку случайно.
 CONFIRM_BEST = True
-CONFIRM_RUNS = 2           # сколько ДОПОЛНИТЕЛЬНЫХ прогонов должен пройти конфиг
+CONFIRM_RUNS = 1           # сколько ДОПОЛНИТЕЛЬНЫХ прогонов должен пройти конфиг (было 2)
 CONFIRM_PAUSE = 15.0       # пауза между прогонами (ловит «мигающие» серверы)
 CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
 CONFIRM_CONCURRENCY = 5    # при повторной проверке меньше нагрузки = честнее скорость
+
+# --- Тип интернета в названии ---
+# Определить реальный тип сети (LTE/Wi-Fi) проверкой нельзя, поэтому метка ставится
+# по признаку «белого списка»: SNI/host конфига — из домена, который работает на
+# мобильном интернете РФ даже при ограничениях. Список можно дополнять.
+LTE_TAG_ENABLED = True
+LTE_TAG = "LTE 📶"
+LTE_SNI_DOMAINS = (
+    "ya.ru", "yandex.ru", "yandex.net", "max.ru", "vk.com", "vk.ru", "vkontakte.ru",
+    "mail.ru", "ok.ru", "dzen.ru", "rutube.ru", "gosuslugi.ru", "sberbank.ru",
+    "sber.ru", "avito.ru", "ozon.ru", "wildberries.ru", "kinopoisk.ru", "2gis.ru",
+    "userapi.com", "mycdn.me", "vkuser.net",
+)
 
 GEO_DELAY = 0.3            # пауза между гео-запросами
 PROGRESS_EVERY = 50        # как часто писать прогресс проверки (раз в N конфигов)
@@ -285,16 +312,33 @@ CITY_RU = {
     "Mumbai": "Мумбаи", "Sao Paulo": "Сан-Паулу", "Johannesburg": "Йоханнесбург",
 }
 
+# Длинные названия городов сокращаем (применяется ко всем городам после перевода)
+CITY_SHORT = {
+    "Франкфурт-на-Майне": "Франкфурт",
+    "Франкфурт-на-Одере": "Франкфурт",
+    "Франкфурт-Майн": "Франкфурт",
+    "Frankfurt am Main": "Франкфурт",
+}
+
+
+def short_city(city):
+    city = str(city).strip()
+    if city in CITY_SHORT:
+        return CITY_SHORT[city]
+    # «Франкфурт-на-...» / «Франкфурт am Main» → «Франкфурт»
+    return re.sub(r"^(Франкфурт)(?:-на-[А-Яа-яЁё]+|\s+am\s+Main)$", r"\1", city)
+
+
 # Серверы за этими CDN не считаем каскадом (страна «входа» там ничего не значит)
 CDN_WORDS = ("cloudflare", "fastly", "akamai", "cloudfront", "gcore", "bunny")
 
 
 # ============================================================
 # ХЕЛЛОУИН
-# Имя конфига: «{флаг} Страна — Город {тег} [{флаг входа}Каскад]»
-# Флаг остаётся первым (клиенты берут из него значок), тег скорости — в конце:
+# Имя конфига: «[{флаг входа} -> ]{флаг выхода} Страна — Город {тег} [LTE 📶]»
+# Флаг остаётся первым (клиенты берут из него значок), тег скорости — после города:
 #   🎃 быстрый (≤ GOOD_PING_MS), 👻 нормальный (≤ 3×), 🦇 медленный.
-# Каскад по-прежнему заканчивает название.
+# Для каскада впереди добавляется «флаг входа -> ». Метка LTE — в конце (только если подходит).
 # ============================================================
 
 HALLOWEEN_ANNOUNCE = "🎃 Телеграм канал: @PizMod 👻\n🦇Автообновление каждые 6 часов🕷"
@@ -371,7 +415,7 @@ def make_geo_name(country_code, city):
     flag = get_country_flag(country_code)
     country = get_country_name(country_code)
     if city:
-        city = str(city).strip()
+        city = short_city(city)
         if city and city != country:
             return f"{flag} {country} — {city}"
     return f"{flag} {country}"
@@ -446,6 +490,40 @@ def dedupe_key(line):
     netloc = re.split(r"[/?#]", rest, maxsplit=1)[0]
     userinfo, _, hostport = netloc.rpartition("@")
     return (scheme, userinfo, hostport.lower())
+
+
+# Параметры, по которым сравниваются «настройки» конфига (без uuid/пароля и названия)
+_SETTINGS_PARAMS = ("type", "security", "sni", "pbk", "path", "servicename", "host",
+                    "mode", "obfs", "alpn")
+
+
+def settings_key(line):
+    """Ключ «одинаковые настройки»: сервер (host:port) + транспорт/безопасность/SNI/ключ,
+    но БЕЗ uuid/пароля. Один сервер, выданный разным пользователям с разными uuid,
+    даёт один и тот же ключ."""
+    if line.startswith("vmess://"):
+        data = b64decode_safe(line[len("vmess://"):])
+        if data:
+            try:
+                o = json.loads(data)
+                return ("vmess", str(o.get("add")).strip().lower(), str(o.get("port")),
+                        str(o.get("net")), str(o.get("path")), str(o.get("host")),
+                        str(o.get("tls")), str(o.get("sni")))
+            except Exception:
+                pass
+        return (line,)
+
+    scheme, _, rest = line.partition("://")
+    scheme = scheme.lower()
+    if scheme == "hysteria2":
+        scheme = "hy2"
+    body = rest.split("#", 1)[0]
+    main, _, query = body.partition("?")
+    netloc = main.split("/", 1)[0]
+    _, _, hostport = netloc.rpartition("@")
+    params = {k.lower(): v[0] for k, v in parse_qs(query, keep_blank_values=True).items() if v}
+    return (scheme, hostport.lower(),
+            tuple((k, params.get(k, "")) for k in _SETTINGS_PARAMS))
 
 
 # ============================================================
@@ -622,6 +700,37 @@ def first(params, *names):
         if value is not None:
             return value
     return None
+
+
+# ============================================================
+# ТИП ИНТЕРНЕТА (метка LTE)
+# ============================================================
+
+def config_sni(line):
+    """SNI (или host) конфига в нижнем регистре, либо ''."""
+    try:
+        if line.startswith("vmess://"):
+            data = b64decode_safe(line[len("vmess://"):])
+            o = json.loads(data) if data else {}
+            return str(o.get("sni") or o.get("host") or "").strip().lower()
+        if line.startswith(HY2_SCHEMES):
+            parts = split_hy2(line)
+            if not parts:
+                return ""
+            _, host, _, params = parts
+            return str(first(params, "sni", "peer") or "").strip().lower()
+        params = query_params(urlparse(line))
+        return str(first(params, "sni", "servername", "host") or "").strip().lower()
+    except Exception:
+        return ""
+
+
+def is_lte(line):
+    """True, если SNI/host конфига — из «белого» домена (работает на мобильном интернете)."""
+    sni = config_sni(line)
+    if not sni:
+        return False
+    return any(sni == d or sni.endswith("." + d) for d in LTE_SNI_DOMAINS)
 
 
 # ============================================================
@@ -1107,15 +1216,66 @@ def _reject(reason):
 
 
 # ============================================================
+# БЫСТРАЯ xray-ПРОВЕРКА (сразу после TCP)
+# Поднимаем ядро и делаем 1–2 лёгких запроса параллельно. Дёшево и быстро;
+# отсекает «порт открыт, а прокси мёртвый» до долгой полной проверки.
+# ============================================================
+
+async def quick_probe(port):
+    connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+    timeout = aiohttp.ClientTimeout(total=QUICK_TIMEOUT)
+    try:
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            res = await asyncio.gather(*(_fetch_ok(session, u) for u in QUICK_URLS),
+                                       return_exceptions=True)
+    except Exception:
+        return False
+    return sum(not isinstance(r, Exception) for r in res) >= QUICK_MIN_OK
+
+
+async def quick_filter(candidates):
+    """Возвращает список конфигов, прошедших быструю проверку (порядок сохраняется)."""
+    semaphore = asyncio.Semaphore(QUICK_CONCURRENCY)
+    total = len(candidates)
+    done = 0
+    ok_count = 0
+
+    async def one(config):
+        nonlocal done, ok_count
+        ok = False
+        async with semaphore:
+            try:
+                async with running_core(config) as port:
+                    if port is None:
+                        _reject("быстрая проверка: ядро не запустилось")
+                    else:
+                        ok = await quick_probe(port)
+                        if not ok:
+                            _reject("быстрая проверка: прокси не отвечает")
+            except Exception:
+                _reject("быстрая проверка: ошибка")
+        done += 1
+        if ok:
+            ok_count += 1
+        if done % PROGRESS_EVERY == 0:
+            print(f"    быстрая: {done}/{total} ✓{ok_count}")
+        return ok
+
+    flags = await asyncio.gather(*(one(c) for c in candidates))
+    return [c for c, ok in zip(candidates, flags) if ok]
+
+
+# ============================================================
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ ЯДРО (xray / sing-box) — возвращает балл (мс) или None
 # Порядок: от дешёвых проверок к дорогим (быстрее отсев).
-#   1) все тестовые URL во всех раундах, HTTPS-сертификаты проверяются;
-#      ответ 204 должен быть пустым (иначе подмена);
+#   1) тестовые URL во всех раундах (допускается TEST_MAX_FAILS сбоев),
+#      HTTPS-сертификаты проверяются; ответ 204 должен быть пустым (иначе подмена);
 #   2) пауза и повтор по тому же соединению (keep-alive);
 #   3) выходной IP определён, не равен нашему; Cloudflare trace подтверждает
 #      тот же IP (и даёт страну выхода) — «плавающий» выход отсеивается;
-#   4) доступ к заблокированным сайтам (YouTube / TikTok / Telegram);
-#   5) параллельный залп на новых соединениях;
+#   4) доступ к заблокированным сайтам (YouTube / TikTok / Instagram; Telegram
+#      не учитывается — «telegram-only» серверы не должны проходить);
+#   5) параллельный залп на новых соединениях (допускается BURST_MAX_FAILS сбоев);
 #   6) скачивание ~1 МБ и отдача (upload) — обрывы и «полусломанные» туннели;
 #   7) выходной IP не изменился к концу проверки; разброс пинга небольшой.
 # Балл = медиана пинга в тёплых раундах + вклад времени загрузки и отдачи.
@@ -1128,18 +1288,30 @@ async def _probe(line, port):
 
     latencies = []
     exit_ip = None
+    fails = 0
     try:
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             for rnd in range(CHECK_ROUNDS):
                 for url in TEST_URLS:
-                    ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
-                    if rnd > 0:                          # первый раунд «холодный» — не считаем
+                    try:
+                        ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
+                    except Exception:
+                        fails += 1
+                        if fails > TEST_MAX_FAILS:
+                            raise
+                        continue
+                    if rnd > 0:                              # первый раунд «холодный» — не считаем
                         latencies.append(ms)
 
             # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
             await asyncio.sleep(IDLE_PAUSE)
             for url in TEST_URLS:
-                await _fetch_ok(session, url)
+                try:
+                    await _fetch_ok(session, url)
+                except Exception:
+                    fails += 1
+                    if fails > TEST_MAX_FAILS:
+                        raise
     except Exception:
         return _reject("тестовые URL / keep-alive")
 
@@ -1166,7 +1338,7 @@ async def _probe(line, port):
         if exit_ip:
             _exit_ip[line] = exit_ip
 
-        # доступ к заблокированным сайтам
+        # доступ к заблокированным сайтам (без Telegram)
         if BLOCKED_URLS and MIN_BLOCKED_OK:
             res_b = await asyncio.gather(
                 *(_fetch_ok(session, u, timeout=10, ok_status=range(200, 400))
@@ -1514,6 +1686,17 @@ async def geo_lookup(session, ip="", extra_code=None):
     return best, make_geo_name(best, city)
 
 
+async def geo_single(session, ip):
+    """Страна по IP «большинством голосов» без требования консенсуса
+    (для страны ВХОДА каскада: там лучше любой ответ, чем никакого)."""
+    results = await asyncio.gather(*(
+        _geo_provider(session, i, k, t, ip)
+        for i, (k, t) in enumerate(GEO_PROVIDERS)
+    ))
+    codes = Counter(code for _, code, _ in results if code)
+    return codes.most_common(1)[0][0] if codes else None
+
+
 async def get_server_geo(session, ip):
     if not ip or not GEO_USE_SERVER_FALLBACK:
         return None, None
@@ -1536,11 +1719,12 @@ async def exit_geo(line):
 # ============================================================
 # КАСКАД: вход и выход в разных странах
 # Страна выхода — по реальному выходному IP (она в названии конфига),
-# страна входа — по IP сервера из конфига. Серверы за CDN пропускаем.
+# страна ВХОДА — по IP сервера из конфига (host:port). Серверы за CDN пропускаем.
+# В названии: «{флаг входа} -> {флаг выхода} Страна — Город».
 # ============================================================
 
 async def detect_cascade(session, config, exit_ip, exit_code):
-    """Флаг страны ВХОДА, если конфиг — каскад, иначе None."""
+    """Флаг страны ВХОДА (сервера из конфига), если конфиг — каскад, иначе None."""
     hp = get_host_port(config)
     if not hp or not exit_code:
         return None
@@ -1556,6 +1740,8 @@ async def detect_cascade(session, config, exit_ip, exit_code):
     except Exception:
         pass
     code, _ = await geo_lookup(session, ip)
+    if not code:
+        code = await geo_single(session, ip)   # консенсуса нет — берём большинство
     if code and code != exit_code.upper():
         return get_country_flag(code)
     return None
@@ -1739,7 +1925,7 @@ def interleave(a, b):
 async def main():
     global _my_ip
 
-    init_port_pool(CONCURRENCY)
+    init_port_pool(max(CONCURRENCY, QUICK_CONCURRENCY))
 
     spooky = halloween_on()
     if spooky:
@@ -1779,17 +1965,27 @@ async def main():
         # закреплённые никогда не удаляются; из подписок убираются только те,
         # что уже есть среди закреплённых или повторяются внутри подписок
         pinned = [c.strip() for c in PINNED_CONFIGS if c.strip()]
-        seen = {dedupe_key(c) for c in pinned if c.startswith(PROTOCOLS)}
+        pinned_protos = [c for c in pinned if c.startswith(PROTOCOLS)]
+        seen = {dedupe_key(c) for c in pinned_protos}
+        seen_settings = {settings_key(c) for c in pinned_protos} if DEDUPE_BY_SETTINGS else set()
 
         unique = []
+        same_settings = 0
         for c in all_configs:
             k = dedupe_key(c)
             if k in seen:
                 continue
             seen.add(k)
+            if DEDUPE_BY_SETTINGS:
+                sk = settings_key(c)
+                if sk in seen_settings:
+                    same_settings += 1      # те же настройки, другой uuid/пароль
+                    continue
+                seen_settings.add(sk)
             unique.append(c)
 
-        print(f"[i] После удаления дубликатов: {len(unique)}")
+        print(f"[i] После удаления дубликатов: {len(unique)} "
+              f"(из них одинаковых настроек с другим uuid убрано: {same_settings})")
 
         # что проверяем: vless/vmess/trojan/ss через xray, hy2 через sing-box
         xray_cands = [c for c in unique if c.startswith(XRAY_SUPPORTED)]
@@ -1835,9 +2031,28 @@ async def main():
             print("[x] Ни один сервер не ответил по TCP.")
             return
 
+        # ---------- 3.05 быстрая xray-проверка ----------
+        if QUICK_CHECK:
+            print(f"\n[i] Быстрая xray-проверка: {len(candidates)}...")
+            quick_ok = await quick_filter(candidates)
+            quick_set = set(quick_ok)
+            for c in candidates:
+                if c not in quick_set:
+                    count(c, False)
+            print(f"[i] Быструю проверку прошли: {len(quick_ok)} из {len(candidates)}")
+            candidates = quick_ok
+            if not candidates:
+                print("[x] Ни один сервер не прошёл быструю проверку.")
+                if _fail:
+                    print("\n[i] Причины отказов:")
+                    for reason, n in _fail.most_common():
+                        print(f"    {n:>5}  {reason}")
+                return
+
         # ---------- 3.1 реальная проверка ----------
+        n_hy2 = sum(1 for c in candidates if c.startswith(HY2_SCHEMES))
         print(f"\n[i] Реальная проверка: {len(candidates)} "
-              f"(xray: {len(tcp_ok)}, hy2: {len(hy2_cands)})...")
+              f"(xray: {len(candidates) - n_hy2}, hy2: {n_hy2})...")
         working, failed = await check_all(candidates)
         for c, _ in working:
             count(c, True)
@@ -1920,7 +2135,7 @@ async def main():
                 # 4) если сервисы не договорились, но Cloudflare знает страну — берём её
                 if not code and trace:
                     code, name = trace, make_geo_name(trace, None)
-                # 5) каскад: страна входа отличается от страны выхода
+                # 5) каскад: страна ВХОДА (сервер из конфига) отличается от страны выхода
                 casc = None
                 try:
                     casc = await detect_cascade(session, config, exit_ip, code)
@@ -1937,10 +2152,12 @@ async def main():
         items = []  # (country_name, latency, renamed_line)
         for (config, latency), (code, name, casc) in zip(best, geos):
             final_name = name or "🌐 Неизвестно"
+            if casc:
+                final_name = f"{casc} -> {final_name}"  # {флаг входа} -> {флаг выхода} Страна — Город
             if spooky:
                 final_name += f" {spooky_tag(latency)}"
-            if casc:
-                final_name += f" {casc}Каскад"
+            if LTE_TAG_ENABLED and is_lte(config):
+                final_name += f" {LTE_TAG}"             # тип интернета — в самом конце
             country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
             items.append((country_key, latency, rename_config(config, final_name)))
 

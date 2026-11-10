@@ -28,13 +28,19 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
+    "https://cat-wife.halyavusvpnus.workers.dev/",
     "https://mifa.world/visa", #mifa
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
     "https://pozor.bond/sub/google-vpn",
+    "https://pozor.bond/sub/ry2627uz9cp7", #Лёха иногда вырубает серваки
+    "https://vpn.voidgram.xyz/burmalda", #burmalda
     "https://pozor.bond/sub/9xnb9v67465y", #от улитки
     "https://v2hub.link/sub/pdsdrvg_qWhwRRhSeUpdN9Bn7qGG2AIuIi319E-QFUs",
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
+    "https://codeberg.org/telegram-alt_vpn_obxod/obxod_white-black_list/raw/branch/main/subs.txt",
+    "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGaHlqIHCzpm8J09GWd0zeNMb%2BUDgv4dboD2VwU438QTP4MnqUeC52Cr1%2BwMypBkx2AeCuIdXZCocuSDn6up0bvCVvvd5lEzyRfjFZUCiUuH5",
+    "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGaHlqIHCzpm8J09GWd0zeNMb%2BUDgv4dboD2VwU438QTP4MnqUeC52Cr1%2BwMypBkx2PeUWfpWpdOUvOeNWrBgAX98qiT06gURdNejXhujIa0P",
 ]
 
 

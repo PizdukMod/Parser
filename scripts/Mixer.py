@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
+# PizdukVPN «МИКС» ❄️ — сбор, проверка и публикация подписки (output/sub.txt)
 
 import asyncio
 import aiohttp
 import aiohttp_socks
 import base64
 import datetime
+import hashlib
 import ipaddress
 import json
 import re
 import shutil
 import socket
 import statistics
+import sys
 import tempfile
 import os
 import itertools
@@ -19,7 +22,7 @@ import time
 from collections import Counter, defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, parse_qsl, unquote, quote
+from urllib.parse import urlparse, parse_qs, unquote, quote
 
 
 # ============================================================
@@ -79,12 +82,37 @@ EARLY_STOP_MULT = 0        # 0 = проверять ВСЕ (ранней ост�
 MAX_PER_COUNTRY = 0        # 0 = без ограничения на страну
 
 MAX_PING_MS = 5000         # отсечка по итоговому баллу (пинг + вклад скорости)
-GOOD_PING_MS = 300         # «быстрый» сервер (🎃 в названии); ≤3× — 👻, дальше — 🦇
+GOOD_PING_MS = 300         # «быстрый» сервер (❄️ в названии); ≤3× — ⛄, дальше — 🧊
 
-# --- Хеллоуин ---
-# True — всегда, False — никогда, "auto" — только с 25 октября по 2 ноября
-# Авто-режим ВЫКЛЮЧЕН: переименование включено всегда.
-HALLOWEEN = True
+# --- Зима ---
+# True — всегда, False — никогда, "auto" — только с 1 ноября по 28 февраля
+WINTER = True
+WINTER_FAST = "❄️"         # быстрый (≤ GOOD_PING_MS)
+WINTER_MID = "⛄"           # нормальный (≤ 3×)
+WINTER_SLOW = "🧊"         # медленный
+
+# --- Подмена HWID (подписки с привязкой к устройству: Happ / Remnawave / Marzban и т.п.) ---
+# HWID один и тот же при каждом запуске (берётся из seed) — чтобы не плодить «новые устройства»
+# и не упираться в лимит устройств на подписке. Одинаковый seed в МИКС и ЧС = одно «устройство».
+HWID_SPOOF = True
+HWID_SEED = os.environ.get("HWID_SEED", "PizMod")
+HWID_FIXED = os.environ.get("SUB_HWID", "")   # если задан — используется как есть
+HWID_OS = "Android"
+HWID_OS_VER = "14"
+HWID_MODEL = "Pixel 8"
+
+# --- Gemini: если через конфиг открывается Gemini — в конец названия добавляется 🤖 ---
+GEMINI_CHECK = True
+GEMINI_URL = "https://gemini.google.com"
+GEMINI_MARKERS = ("45631641,null,true",)   # маркер «регион поддерживается» в HTML страницы
+GEMINI_TIMEOUT = 12.0
+GEMINI_TAG = "🤖"
+GEMINI_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cookie": "SOCS=CAI",      # без окна согласия для EU-выходов
+}
 
 # --- реальный пинг ---
 CHECK_ROUNDS = 3           # раундов по всем TEST_URLS; 1-й «холодный», остальные считаются в пинг
@@ -202,7 +230,34 @@ HY2_SCHEMES = ("hy2://", "hysteria2://")
 
 _my_ip = None
 _exit_ip = {}               # config -> выходной IP
+_gemini = {}                # config -> True, если Gemini открылся хотя бы в одном прогоне
 _fail = Counter()           # причина отказа -> сколько конфигов
+_T0 = time.monotonic()
+
+
+# ============================================================
+# ЛОГ (для CI): время от старта + итоговая сводка
+# ============================================================
+
+def elapsed():
+    s = int(time.monotonic() - _T0)
+    return f"{s // 60:02d}:{s % 60:02d}"
+
+
+def stage(title):
+    print(f"\n[⏱ {elapsed()}] {title}")
+
+
+def write_step_summary(lines):
+    """Если CI поддерживает $GITHUB_STEP_SUMMARY — пишем туда короткую сводку (иначе ничего не делаем)."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    except Exception:
+        pass
 
 
 # ============================================================
@@ -262,47 +317,78 @@ CDN_WORDS = ("cloudflare", "fastly", "akamai", "cloudfront", "gcore", "bunny")
 
 
 # ============================================================
-# ХЕЛЛОУИН
-# Имя конфига: «{флаг} Страна — Город {тег} [{флаг входа}Каскад]»
-# Флаг остаётся первым (клиенты берут из него значок), тег скорости — в конце:
-#   🎃 быстрый (≤ GOOD_PING_MS), 👻 нормальный (≤ 3×), 🦇 медленный.
+# ЗИМА
+# Имя конфига: «{флаг} Страна — Город {тег} [{флаг входа}Каскад] [🤖]»
+# Флаг остаётся первым (клиенты берут из него значок), тег скорости — после города:
+#   ❄️ быстрый (≤ GOOD_PING_MS), ⛄ нормальный (≤ 3×), 🧊 медленный.
+# 🤖 — в самом конце, только если через конфиг открывается Gemini.
 # ============================================================
 
-HALLOWEEN_ANNOUNCE = "🎃 Телеграм канал: @PizMod 👻\n🦇Автообновление раз в 6 часов🕷"
+WINTER_ANNOUNCE = "❄️ Телеграм канал: @PizMod ⛄\n🎄Автообновление раз в 6 часов🧊"
 
 
-def halloween_on():
-    if HALLOWEEN is True:
+def winter_on():
+    if WINTER is True:
         return True
-    if HALLOWEEN is False:
+    if WINTER is False:
         return False
-    t = datetime.date.today()  # "auto"
-    return (t.month == 10 and t.day >= 25) or (t.month == 11 and t.day <= 2)
+    return datetime.date.today().month in (11, 12, 1, 2)  # "auto"
 
 
-def spooky_tag(score):
+def winter_tag(score):
     if score <= GOOD_PING_MS:
-        return "🎃"
+        return WINTER_FAST
     if score <= GOOD_PING_MS * 3:
-        return "👻"
-    return "🦇"
+        return WINTER_MID
+    return WINTER_SLOW
 
 
-def halloween_header(lines):
-    """Подменяет заголовок подписки (название и анонс) на хеллоуинские."""
+def winter_header(lines):
+    """Подменяет заголовок подписки (название и анонс) на зимние."""
     out = []
     for line in lines:
         if line.startswith("#profile-title:"):
-            title = line.replace("🤯", "🎃")
-            if "🎃" not in title:
-                title = title.rstrip() + "🎃"
+            title = line.replace("🤯", "❄️")
+            if "❄" not in title:
+                title = title.rstrip() + "❄️"
             out.append(title)
         elif line.startswith("#announce:"):
-            enc = base64.b64encode(HALLOWEEN_ANNOUNCE.encode("utf-8")).decode("ascii")
+            enc = base64.b64encode(WINTER_ANNOUNCE.encode("utf-8")).decode("ascii")
             out.append(f"#announce: base64: {enc}")
         else:
             out.append(line)
     return out
+
+
+# ============================================================
+# HWID
+# ============================================================
+
+def make_hwid():
+    if HWID_FIXED.strip():
+        return HWID_FIXED.strip()
+    return hashlib.sha256(HWID_SEED.encode("utf-8")).hexdigest()[:16]
+
+
+HWID = make_hwid()
+
+
+def hwid_headers():
+    """Заголовки «устройства» (как у Happ): x-hwid, x-device-os, x-ver-os, x-device-model."""
+    if not HWID_SPOOF:
+        return {}
+    return {
+        "x-hwid": HWID,
+        "x-device-os": HWID_OS,
+        "x-ver-os": HWID_OS_VER,
+        "x-device-model": HWID_MODEL,
+    }
+
+
+def build_fetch_headers(attempt):
+    headers = dict(FETCH_HEADERS_LIST[attempt % len(FETCH_HEADERS_LIST)])
+    headers.update(hwid_headers())
+    return headers
 
 
 # ============================================================
@@ -1084,7 +1170,7 @@ async def wait_local_port(proc, port, timeout):
                 pass
             return True
         except Exception:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.05)
     return False
 
 
@@ -1136,22 +1222,37 @@ async def running_core(line):
 
 
 # ============================================================
-# IP / TRACE / ГЕО ЧЕРЕЗ ПРОКСИ
+# IP / TRACE / ГЕО / GEMINI ЧЕРЕЗ ПРОКСИ
 # ============================================================
 
+async def _noop(value=None):
+    return value
+
+
 async def fetch_ip(session, timeout=8.0):
+    """Выходной IP: все эхо-сервисы опрашиваются параллельно, берём первый валидный ответ."""
     t = aiohttp.ClientTimeout(total=timeout)
-    for url in IP_ECHO_URLS:
-        try:
-            async with session.get(url, timeout=t) as resp:
-                if resp.status != 200:
-                    continue
-                text = (await resp.text()).strip()
-            ipaddress.ip_address(text)
-            return text
-        except Exception:
-            continue
-    return None
+
+    async def one(url):
+        async with session.get(url, timeout=t) as resp:
+            if resp.status != 200:
+                raise ValueError(f"status {resp.status}")
+            text = (await resp.text()).strip()
+        ipaddress.ip_address(text)
+        return text
+
+    tasks = [asyncio.ensure_future(one(u)) for u in IP_ECHO_URLS]
+    try:
+        for fut in asyncio.as_completed(tasks):
+            try:
+                return await fut
+            except Exception:
+                continue
+        return None
+    finally:
+        for tk in tasks:
+            tk.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def fetch_trace(session, timeout=8.0):
@@ -1191,6 +1292,19 @@ async def fetch_exit_geo(session):
     return None
 
 
+async def check_gemini(session):
+    """True, если через прокси открывается Gemini (в HTML есть маркер «регион поддерживается»)."""
+    try:
+        async with session.get(GEMINI_URL, headers=GEMINI_HEADERS,
+                               timeout=aiohttp.ClientTimeout(total=GEMINI_TIMEOUT)) as resp:
+            if resp.status != 200:
+                return False
+            body = await resp.text(errors="ignore")
+        return any(m in body for m in GEMINI_MARKERS)
+    except Exception:
+        return False
+
+
 def _same_family_diff(a, b):
     """True, если оба — IP одной версии и они РАЗНЫЕ."""
     try:
@@ -1227,26 +1341,27 @@ def _reject(reason):
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ ЯДРО (xray / sing-box) — возвращает балл (мс) или None
 # От дешёвых проверок к дорогим:
 #   1) все тестовые URL во всех раундах, SSL проверяется, 204 без тела;
-#   2) пауза и повтор по тому же соединению (keep-alive);
-#   3) выходной IP (эхо + Cloudflare trace должны совпадать), страна выхода, город;
-#   4) заблокированные сайты (если MIN_BLOCKED_OK > 0);
-#   5) параллельный залп на новых соединениях;
-#   6) скачивание ~1 МБ и отдача (upload);
-#   7) выходной IP не «плавает», разброс пинга небольшой.
+#      пауза и повтор по тому же соединению (keep-alive); джиттер — сразу после;
+#   2) выходной IP (эхо + Cloudflare trace должны совпадать), страна выхода, город;
+#   3) заблокированные сайты (если MIN_BLOCKED_OK > 0);
+#   4) параллельный залп на новых соединениях;
+#   5) скачивание ~1 МБ и отдача (upload);
+#   6) выходной IP не «плавает» + проверка Gemini (параллельно).
 # Балл = медиана пинга в тёплых раундах + вклад времени загрузки и отдачи.
 # ============================================================
 
 async def _probe(line, port):
-    connector = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+    proxy = f"socks5://127.0.0.1:{port}"
     timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
 
     latencies = []
     try:
+        connector = aiohttp_socks.ProxyConnector.from_url(proxy)
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             for rnd in range(CHECK_ROUNDS):
                 for url in TEST_URLS:
                     ms = await _fetch_ok(session, url)   # ssl-проверка ВКЛЮЧЕНА
-                    if rnd > 0:
+                    if rnd > 0 or CHECK_ROUNDS == 1:
                         latencies.append(ms)
 
             await asyncio.sleep(IDLE_PAUSE)
@@ -1255,12 +1370,21 @@ async def _probe(line, port):
     except Exception:
         return _reject("тестовые URL / keep-alive")
 
-    connector_b = aiohttp_socks.ProxyConnector.from_url(f"socks5://127.0.0.1:{port}")
+    # джиттер считаем сразу: это бесплатно, а «плохой» конфиг не доходит до дорогих проверок
+    if not latencies:
+        return _reject("нет замеров пинга")
+    if max(latencies) > MAX_JITTER * min(latencies) + 100:
+        return _reject("нестабильный пинг (джиттер)")
+
     exit_ip = None
     code = None
+    connector_b = aiohttp_socks.ProxyConnector.from_url(proxy)
     async with aiohttp.ClientSession(connector=connector_b, timeout=timeout) as session:
-        echo_ip = await fetch_ip(session, XRAY_TEST_TIMEOUT)
-        tr = await fetch_trace(session, XRAY_TEST_TIMEOUT)
+        echo_ip, tr, geo = await asyncio.gather(
+            fetch_ip(session, XRAY_TEST_TIMEOUT),
+            fetch_trace(session, XRAY_TEST_TIMEOUT),
+            fetch_exit_geo(session),
+        )
         t_ip, t_loc = tr if tr else (None, "")
 
         exit_ip = echo_ip or t_ip
@@ -1274,8 +1398,7 @@ async def _probe(line, port):
                 return _reject("выход в исключённой стране")
             code = t_loc
 
-        # город (и страна, если trace не ответил) — через ту же прокси-сессию
-        geo = await fetch_exit_geo(session)
+        # город (и страна, если trace не ответил)
         city = None
         if geo:
             g_cc, g_city, g_ip = geo
@@ -1306,9 +1429,7 @@ async def _probe(line, port):
 
     dl_ms = None
     up_ms = None
-    conn2 = aiohttp_socks.ProxyConnector.from_url(
-        f"socks5://127.0.0.1:{port}", force_close=True
-    )
+    conn2 = aiohttp_socks.ProxyConnector.from_url(proxy, force_close=True)
     async with aiohttp.ClientSession(connector=conn2, timeout=timeout) as s2:
         urls = [TEST_URLS[i % len(TEST_URLS)] for i in range(BURST_PARALLEL)]
         res = await asyncio.gather(*(_fetch_ok(s2, u) for u in urls),
@@ -1343,15 +1464,17 @@ async def _probe(line, port):
             if REQUIRE_UPLOAD and (up_ms is None or up_ms > UPLOAD_MAX_MS):
                 return _reject("отдача (upload) не прошла / медленная")
 
-        if REQUIRE_STABLE_EXIT_IP and exit_ip:
-            ip2 = await fetch_ip(s2, XRAY_TEST_TIMEOUT)
-            if ip2 and _same_family_diff(exit_ip, ip2):
-                return _reject("выходной IP «плавает»")
+        # финал: стабильность выходного IP и Gemini — одновременно (Gemini только для прошедших всё)
+        want_ip2 = REQUIRE_STABLE_EXIT_IP and exit_ip
+        ip2, gem = await asyncio.gather(
+            fetch_ip(s2, XRAY_TEST_TIMEOUT) if want_ip2 else _noop(),
+            check_gemini(s2) if GEMINI_CHECK else _noop(False),
+        )
+        if want_ip2 and ip2 and _same_family_diff(exit_ip, ip2):
+            return _reject("выходной IP «плавает»")
+        if GEMINI_CHECK:
+            _gemini[line] = _gemini.get(line, False) or bool(gem)
 
-    if not latencies:
-        return _reject("нет замеров пинга")
-    if max(latencies) > MAX_JITTER * min(latencies) + 100:
-        return _reject("нестабильный пинг (джиттер)")
     return statistics.median(latencies) + ((dl_ms or 0) + (up_ms or 0)) * SPEED_WEIGHT
 
 
@@ -1375,6 +1498,8 @@ async def entry_geo_batch(session, ips):
     result = {}
     ips = sorted(set(ips))
     for i in range(0, len(ips), 100):
+        if i:
+            await asyncio.sleep(4.5)  # лимит ip-api: 15 batch-запросов в минуту
         chunk = ips[i:i + 100]
         for _ in range(3):
             try:
@@ -1398,12 +1523,12 @@ async def entry_geo_batch(session, ips):
                 break
             except Exception:
                 await asyncio.sleep(3)
-        await asyncio.sleep(4.5)
     return result
 
 
 # ============================================================
-# СКАЧИВАНИЕ ПОДПИСОК
+# СКАЧИВАНИЕ ПОДПИСОК (с подменой HWID, сменой User-Agent и повтором,
+# если ответ пустой — частая заглушка у подписок с привязкой к устройству)
 # ============================================================
 
 def short_name(url):
@@ -1411,30 +1536,28 @@ def short_name(url):
     return name if len(name) <= 28 else name[:27] + "…"
 
 
-async def fetch(session, url):
+async def fetch_source(session, url):
     timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT)
     last_err = None
     for attempt in range(FETCH_RETRIES):
-        headers = FETCH_HEADERS_LIST[attempt % len(FETCH_HEADERS_LIST)]
         ssl_opt = False if attempt == FETCH_RETRIES - 1 else None
         try:
-            async with session.get(url, headers=headers, timeout=timeout,
+            async with session.get(url, headers=build_fetch_headers(attempt), timeout=timeout,
                                    allow_redirects=True, ssl=ssl_opt) as response:
                 response.raise_for_status()
-                return await response.text(errors="ignore")
+                raw = await response.text(errors="ignore")
+            configs = extract_lines(raw)
+            if configs:
+                print(f"[i] {short_name(url)}: {len(configs)}")
+                return url, configs
+            last_err = "в ответе нет конфигов"
         except Exception as e:
             last_err = e
-            await asyncio.sleep(1.5)
+        if attempt < FETCH_RETRIES - 1:
+            await asyncio.sleep(1.0)
     err = str(last_err) or type(last_err).__name__
     print(f"[!] {short_name(url)}: {err[:60]}")
-    return None
-
-
-async def fetch_source(session, url):
-    raw = await fetch(session, url)
-    configs = extract_lines(raw) if raw else []
-    print(f"[i] {short_name(url)}: {len(configs)}")
-    return url, configs
+    return url, []
 
 
 # ============================================================
@@ -1472,7 +1595,7 @@ async def check_all(candidates):
                     _reject("итоговый балл выше MAX_PING_MS")
                 failed.append(config)
             if done % PROGRESS_EVERY == 0:
-                print(f"    проверено {done}/{total} ✓{len(working)}")
+                print(f"    [{elapsed()}] проверено {done}/{total} ✓{len(working)}")
 
     await asyncio.gather(*(worker(c) for c in candidates))
     return working, failed
@@ -1553,7 +1676,7 @@ async def confirm_best(items, want):
         chunk = items[idx: idx + need + CONFIRM_SPARE]
         idx += len(chunk)
         await asyncio.gather(*(worker(c, l) for c, l in chunk))
-        print(f"    подтверждено {len(confirmed)}/{want} (просмотрено {idx}/{len(items)})")
+        print(f"    [{elapsed()}] подтверждено {len(confirmed)}/{want} (просмотрено {idx}/{len(items)})")
 
     confirmed.sort(key=lambda x: x[1])
     return confirmed
@@ -1571,11 +1694,18 @@ def interleave(a, b):
 async def main():
     global _my_ip
 
+    try:  # вывод сразу, без буфера (важно для CI) и в UTF-8 (эмодзи в логе)
+        sys.stdout.reconfigure(line_buffering=True, encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
     init_port_pool(CONCURRENCY)
 
-    spooky = halloween_on()
-    if spooky:
-        print("[i] 🎃 Хеллоуин-режим: названия с тегами скорости")
+    winter = winter_on()
+    if winter:
+        print("[i] ❄️ Зимний режим: названия с тегами скорости")
+    if HWID_SPOOF:
+        print(f"[i] HWID: {HWID[:6]}… ({HWID_MODEL}, {HWID_OS} {HWID_OS_VER})")
 
     hy2_enabled = CHECK_HY2 and shutil.which(SINGBOX_BINARY) is not None
     if CHECK_HY2 and not hy2_enabled:
@@ -1590,7 +1720,7 @@ async def main():
         print(f"[i] Мой IP: {_my_ip or 'не определён (проверка совпадения с моим IP отключена)'}")
 
         # ---------- 1. скачиваем ВСЕ подписки ----------
-        print("[i] Скачиваю подписки...")
+        stage("Скачиваю подписки...")
         results = await asyncio.gather(*(fetch_source(session, u) for u in SOURCES),
                                        return_exceptions=True)
 
@@ -1648,7 +1778,7 @@ async def main():
         # ---------- 3. быстрая TCP-проверка (кроме hy2) ----------
         alive = []
         if xray_cands:
-            print(f"\n[i] TCP: проверяю {len(xray_cands)}...")
+            stage(f"TCP: проверяю {len(xray_cands)}...")
             alive = await tcp_filter(xray_cands)
             alive_set = {c for c, _ in alive}
             for c in xray_cands:
@@ -1668,7 +1798,7 @@ async def main():
             return
 
         # ---------- 3.1 реальная проверка ----------
-        print(f"\n[i] Реальная проверка: {len(candidates)} "
+        stage(f"Реальная проверка: {len(candidates)} "
               f"(xray: {len(tcp_ok)}, hy2: {len(hy2_cands)})...")
         working, failed = await check_all(candidates)
         for c, _ in working:
@@ -1696,7 +1826,7 @@ async def main():
 
         if CONFIRM_BEST:
             want = (TARGET_COUNT * (2 if MAX_PER_COUNTRY else 1)) if TARGET_COUNT else len(working)
-            print("\n[i] Повторная проверка лучших...")
+            stage("Повторная проверка лучших...")
             selected = await confirm_best(working, want)
         else:
             selected = working
@@ -1720,13 +1850,14 @@ async def main():
 
         entry_geo = {}
         if entry_ip:
-            print(f"\n[i] Гео входа (для каскадов): {len(set(entry_ip.values()))} IP...")
+            stage(f"Гео входа (для каскадов): {len(set(entry_ip.values()))} IP...")
             entry_geo = await entry_geo_batch(session, entry_ip.values())
 
         print("\n[i] Определяю страны (по реальному выходному IP) и отбираю...")
         per_country = defaultdict(int)
         items = []
         cascades = 0
+        gemini_n = 0
 
         for config, latency in selected:
             if TARGET_COUNT and len(items) >= TARGET_COUNT:
@@ -1750,8 +1881,8 @@ async def main():
 
             final_name = name or "🌐 Неизвестно"
 
-            if spooky:
-                final_name += f" {spooky_tag(latency)}"
+            if winter:
+                final_name += f" {winter_tag(latency)}"
 
             # каскад: страна входа ≠ страна выхода (и вход не за CDN)
             if DETECT_CASCADE and info:
@@ -1762,26 +1893,32 @@ async def main():
                     final_name += f" {get_country_flag(eg[0])}Каскад"
                     cascades += 1
 
+            # Gemini — самым последним
+            if GEMINI_CHECK and _gemini.get(config):
+                final_name += f" {GEMINI_TAG}"
+                gemini_n += 1
+
             country_key = get_country_name(code) if code else "я_Неизвестно"
             items.append((country_key, latency, rename_config(config, final_name)))
 
             if len(items) % 100 == 0:
                 print(f"    отобрано {len(items)}/{TARGET_COUNT or '∞'}")
 
-        print(f"[i] Отобрано: {len(items)} (стран: {len(per_country)}, каскадов: {cascades})")
+        print(f"[i] Отобрано: {len(items)} (стран: {len(per_country)}, "
+              f"каскадов: {cascades}, Gemini {GEMINI_TAG}: {gemini_n})")
 
         items.sort(key=lambda x: (x[0], x[1]))
         renamed = [line for _, _, line in items]
 
     # ---------- 6. сохраняем ----------
-    header = halloween_header(pinned) if spooky else pinned
+    header = winter_header(pinned) if winter else pinned
     final_list = header + renamed
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_FILE.write_text("\n".join(final_list) + "\n", encoding="utf-8")
 
     print()
-    print(f"[✓] Готово: {len(final_list)} (закр. {len(pinned)} + {len(renamed)})")
+    print(f"[✓] Готово за {elapsed()}: {len(final_list)} (закр. {len(pinned)} + {len(renamed)})")
     print(f"[✓] Файл: {OUTPUT_FILE}")
 
     print("\n[i] Распределение по странам:")
@@ -1806,6 +1943,13 @@ async def main():
             print(f"{icon} {short_name(url)}: {bad}/{tested} ({bad * 100 // tested}%)")
         top_url, top_tested, top_bad = rows[0]
         print(f"\n[!] Больше всего нерабочих: {short_name(top_url)} ({top_bad} из {top_tested})")
+
+    write_step_summary([
+        "### PizdukVPN Миксер ❄️",
+        f"- Время: **{elapsed()}**",
+        f"- В подписке: **{len(renamed)}** (закреплённых {len(pinned)})",
+        f"- Стран: {len(per_country)}, каскадов: {cascades}, Gemini {GEMINI_TAG}: {gemini_n}",
+    ] + [f"- {n} × {reason}" for reason, n in _fail.most_common(5)])
 
 
 if __name__ == "__main__":

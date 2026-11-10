@@ -31,6 +31,7 @@ SOURCES = [
     "https://mifa.world/visa",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt",
     "https://admin2.vspboost.ru/s/rZ7ekY",
+    "https://pozor.bond/sub/google-vpn",
     "https://v2hub.link/sub/pdsdrvg_qWhwRRhSeUpdN9Bn7qGG2AIuIi319E-QFUs",
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
 ]

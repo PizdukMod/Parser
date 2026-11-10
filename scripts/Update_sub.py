@@ -27,11 +27,12 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 # ============================================================
 
 SOURCES = [
-    "https://freevpn.happcluchi.workers.dev",
-    "https://mifa.world/visa",
-    "https://sub.vlessfo.ru/vlessforu/working_configs.txt",
-    "https://admin2.vspboost.ru/s/rZ7ekY",
+    "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
+    "https://mifa.world/visa", #mifa
+    "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
+    "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
     "https://pozor.bond/sub/google-vpn",
+    "https://pozor.bond/sub/9xnb9v67465y", #от улитки
     "https://v2hub.link/sub/pdsdrvg_qWhwRRhSeUpdN9Bn7qGG2AIuIi319E-QFUs",
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
 ]

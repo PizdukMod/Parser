@@ -245,18 +245,22 @@ CONFIRM_PAUSE = 15.0       # пауза между прогонами (рабо�
 CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
 CONFIRM_CONCURRENCY = 10   # (было 5)
 
-# --- Тип интернета в названии ---
+# --- Метка 📶: конфиг подходит под белые списки мобильного интернета РФ ---
 # Определить реальный тип сети (LTE/Wi-Fi) проверкой нельзя, поэтому метка ставится
-# по признаку «белого списка»: SNI/host конфига — из домена, который работает на
-# мобильном интернете РФ даже при ограничениях.
+# по признаку «белого списка»: SNI/host — из домена списка, либо IP сервера — из списка IP.
 LTE_TAG_ENABLED = True
-LTE_TAG = "LTE 📶"
-LTE_SNI_DOMAINS = (
+LTE_TAG = "📶"
+LTE_LISTS_ENABLED = True    # качать списки ancored/ru-mobile-whitelist при каждом запуске
+LTE_SNI_LIST_URL = "https://github.com/ancored/ru-mobile-whitelist/releases/latest/download/ru-mobile-whitelist-sni.txt"
+LTE_IP_LIST_URL = "https://github.com/ancored/ru-mobile-whitelist/releases/latest/download/ru-mobile-whitelist-ip.txt"
+LTE_REQUIRE_BOTH = False    # False — 📶 если совпал SNI ИЛИ IP сервера; True — только если совпали оба
+LTE_SNI_DOMAINS = (         # встроенный список (работает, даже если списки не скачались)
     "ya.ru", "yandex.ru", "yandex.net", "max.ru", "vk.com", "vk.ru", "vkontakte.ru",
     "mail.ru", "ok.ru", "dzen.ru", "rutube.ru", "gosuslugi.ru", "sberbank.ru",
     "sber.ru", "avito.ru", "ozon.ru", "wildberries.ru", "kinopoisk.ru", "2gis.ru",
     "userapi.com", "mycdn.me", "vkuser.net",
 )
+
 
 GEO_CITY_CONCURRENCY = 4   # одновременных запросов города (по IP выхода, бесплатные API)
 PROGRESS_EVERY = 50        # как часто писать прогресс проверки (раз в N конфигов)
@@ -383,10 +387,10 @@ CDN_WORDS = ("cloudflare", "fastly", "akamai", "cloudfront", "gcore", "bunny")
 
 # ============================================================
 # ЗИМА
-# Имя конфига: «[{флаг входа} -> ]{флаг выхода} Страна — Город {тег} [LTE 📶] [🤖]»
+# Имя конфига: «[{флаг входа} -> ]{флаг выхода} Страна — Город {тег} [📶] [🤖]»
 # Флаг остаётся первым (клиенты берут из него значок), тег скорости — после города:
 #   ❄️ быстрый (≤ GOOD_PING_MS), ⛄ нормальный (≤ 3×), 🧊 медленный.
-# Для каскада впереди добавляется «флаг входа -> ». Метка LTE — если подходит.
+# Для каскада впереди добавляется «флаг входа -> ». Метка 📶 — если конфиг подходит под белые списки.
 # 🤖 — в самом конце, только если через конфиг открывается Gemini.
 # ============================================================
 
@@ -782,7 +786,7 @@ def first(params, *names):
 
 
 # ============================================================
-# ТИП ИНТЕРНЕТА (метка LTE)
+# ТИП ИНТЕРНЕТА (метка 📶)
 # ============================================================
 
 def config_sni(line):
@@ -804,12 +808,103 @@ def config_sni(line):
         return ""
 
 
-def is_lte(line):
-    """True, если SNI/host конфига — из «белого» домена (работает на мобильном интернете)."""
-    sni = config_sni(line)
-    if not sni:
+# ============================================================
+# МЕТКА 📶 (мобильный интернет РФ с белыми списками)
+# Реальный тип сети проверкой не определить, поэтому метка ставится по признаку «белого списка»:
+#   • SNI/host конфига — домен из белого списка (встроенный + ru-mobile-whitelist-sni.txt);
+#   • IP сервера входа — из ru-mobile-whitelist-ip.txt (отдельные IP и CIDR).
+# Списки качаются при каждом запуске; не скачались — работает только встроенный список SNI.
+# ============================================================
+
+_lte_sni = set(LTE_SNI_DOMAINS)
+_lte_nets = {}   # (версия IP, длина префикса) -> {сетевые адреса как числа}
+
+
+def _list_tokens(text):
+    for line in (text or "").splitlines():
+        line = line.split("#", 1)[0].strip()
+        for tok in re.split(r"[\s,;]+", line):
+            if tok:
+                yield tok.lower()
+
+
+def _lte_add_net(tok):
+    try:
+        net = ipaddress.ip_network(tok, strict=False)
+    except ValueError:
         return False
-    return any(sni == d or sni.endswith("." + d) for d in LTE_SNI_DOMAINS)
+    _lte_nets.setdefault((net.version, net.prefixlen), set()).add(int(net.network_address))
+    return True
+
+
+def lte_ip_match(ip):
+    try:
+        addr = ipaddress.ip_address(ip)
+    except Exception:
+        return False
+    bits = 32 if addr.version == 4 else 128
+    value = int(addr)
+    for (ver, plen), nets in _lte_nets.items():
+        if ver != addr.version:
+            continue
+        mask = (((1 << plen) - 1) << (bits - plen)) if plen else 0
+        if (value & mask) in nets:
+            return True
+    return False
+
+
+def lte_sni_match(sni):
+    s = (sni or "").strip().lower().rstrip(".")
+    while "." in s:                      # сам домен и его родительские (a.b.ru -> b.ru)
+        if s in _lte_sni:
+            return True
+        s = s.partition(".")[2]
+    return False
+
+
+def is_lte(line, ip=None):
+    """True, если конфиг подходит под белые списки: SNI/host из списка SNI или IP сервера из списка IP."""
+    sni_ok = lte_sni_match(config_sni(line))
+    ip_ok = bool(ip) and lte_ip_match(ip)
+    return (sni_ok and ip_ok) if LTE_REQUIRE_BOTH else (sni_ok or ip_ok)
+
+
+async def _fetch_plain(session, url, tries=3):
+    for _ in range(tries):
+        try:
+            async with session.get(url, headers={"User-Agent": "Mozilla/5.0"},
+                                   timeout=aiohttp.ClientTimeout(total=30),
+                                   allow_redirects=True) as r:
+                r.raise_for_status()
+                return await r.text(errors="ignore")
+        except Exception:
+            await asyncio.sleep(1.5)
+    return None
+
+
+async def load_lte_lists(session):
+    """Скачивает белые списки (SNI и IP/CIDR) и добавляет к встроенным."""
+    if not (LTE_TAG_ENABLED and LTE_LISTS_ENABLED):
+        return
+    sni_text, ip_text = await asyncio.gather(
+        _fetch_plain(session, LTE_SNI_LIST_URL), _fetch_plain(session, LTE_IP_LIST_URL))
+    add_sni = add_ip = 0
+    for tok in _list_tokens(sni_text):
+        tok = tok.lstrip("*.").rstrip(".")
+        if not tok:
+            continue
+        if _lte_add_net(tok):            # в списке SNI попался IP — тоже полезен
+            add_ip += 1
+        elif "/" not in tok and tok not in _lte_sni:
+            _lte_sni.add(tok)
+            add_sni += 1
+    for tok in _list_tokens(ip_text):
+        if _lte_add_net(tok):
+            add_ip += 1
+    if sni_text is None or ip_text is None:
+        print(f"[!] {LTE_TAG}: не все белые списки скачались (SNI {'ок' if sni_text else 'нет'}, "
+              f"IP {'ок' if ip_text else 'нет'})")
+    print(f"[i] {LTE_TAG} белые списки: SNI +{add_sni} (всего {len(_lte_sni)}), IP/CIDR +{add_ip}")
 
 
 # ============================================================
@@ -864,12 +959,26 @@ def build_stream_settings(params, default_host, default_security="none"):
         stream["grpcSettings"] = {
             "serviceName": unquote(first(params, "servicename") or ""),
         }
+    elif network == "httpupgrade":
+        stream["httpupgradeSettings"] = {
+            "path": unquote(first(params, "path") or "/"),
+            "host": first(params, "host") or default_host,
+        }
     elif network in ("xhttp", "http", "h2"):
         stream["network"] = "xhttp" if network == "xhttp" else "h2"
         path = unquote(first(params, "path") or "/")
         host = first(params, "host") or default_host
         if stream["network"] == "xhttp":
-            stream["xhttpSettings"] = {"path": path, "host": host, "mode": first(params, "mode") or "auto"}
+            xs = {"path": path, "host": host, "mode": first(params, "mode") or "auto"}
+            extra = first(params, "extra")          # дополнительные параметры xhttp (JSON)
+            if extra:
+                try:
+                    ex = json.loads(extra)
+                    if isinstance(ex, dict):
+                        xs["extra"] = ex
+                except Exception:
+                    pass
+            stream["xhttpSettings"] = xs
         else:
             stream["httpSettings"] = {"path": path, "host": [host]}
 
@@ -1014,6 +1123,17 @@ def parse_vmess(line):
             stream["wsSettings"] = {"path": obj.get("path", "/"), "headers": {"Host": obj.get("host", "") or host}}
         elif network == "grpc":
             stream["grpcSettings"] = {"serviceName": obj.get("path", "")}
+        elif network == "httpupgrade":
+            stream["httpupgradeSettings"] = {"path": obj.get("path", "/") or "/",
+                                             "host": obj.get("host", "") or host}
+        elif network in ("xhttp", "splithttp"):
+            stream["network"] = "xhttp"
+            stream["xhttpSettings"] = {"path": obj.get("path", "/") or "/",
+                                       "host": obj.get("host", "") or host, "mode": "auto"}
+        elif network in ("h2", "http"):
+            stream["network"] = "h2"
+            stream["httpSettings"] = {"path": obj.get("path", "/") or "/",
+                                      "host": [obj.get("host", "") or host]}
 
         if str(obj.get("tls", "")).lower() == "tls":
             tls = {
@@ -1469,10 +1589,12 @@ async def _probe(line, port):
 
 
 async def real_check(line):
+    if build_core_config(line, 1) is None:       # причины отказов разделены: парсер или ядро
+        return _reject("конфиг не разобран (парсер)")
     try:
         async with running_core(line) as port:
             if port is None:
-                return _reject("ядро не запустилось / конфиг не разобран")
+                return _reject("ядро не поднялось (порт не открылся / ядро упало)")
             return await _probe(line, port)
     except Exception:
         return _reject("прочая ошибка")
@@ -1779,6 +1901,311 @@ async def entry_geo_batch(session, ips):
 
 
 # ============================================================
+# JSON-КОНФИГИ → ССЫЛКИ (vless / vmess / trojan / ss / hy2)
+# Подписки иногда отдают не ссылки, а JSON: один xray-конфиг, массив таких конфигов
+# (формат Happ / v2rayTun / Streisand) или sing-box. Переводим их в обычные ссылки —
+# дальше они идут тем же путём: дедуп → TCP → проверка ядром → переименование.
+# Цепочки (dialerProxy / detour), kcp / quic и tcp с http-маскировкой не переводятся.
+# ============================================================
+
+def _first_of(v):
+    if isinstance(v, (list, tuple)):
+        return v[0] if v else None
+    return v
+
+
+def _listify(v):
+    if isinstance(v, (list, tuple)):
+        return ",".join(str(x) for x in v if x)
+    return v
+
+
+def _hostport_str(h):
+    h = str(h).strip()
+    return f"[{h}]" if ":" in h and not h.startswith("[") else h
+
+
+def _qs(params):
+    return "&".join(f"{k}={quote(str(v), safe='')}" for k, v in params.items()
+                    if v is not None and v != "")
+
+
+def _frag(remark):
+    return f"#{quote(str(remark))}" if remark else ""
+
+
+def _vmess_link(host, port, uid, aid, scy, p, remark):
+    if p["security"] == "reality":
+        return None   # vmess + reality не бывает
+    net = p["type"]
+    obj = {
+        "v": "2", "ps": remark or "", "add": host, "port": str(port), "id": uid,
+        "aid": str(aid or 0), "scy": scy or "auto", "net": net, "type": "none",
+        "host": p.get("host") or "",
+        "path": (p.get("serviceName") if net == "grpc" else p.get("path")) or "",
+        "tls": "tls" if p["security"] == "tls" else "",
+        "sni": p.get("sni") or "", "alpn": p.get("alpn") or "", "fp": p.get("fp") or "",
+    }
+    raw = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return "vmess://" + base64.b64encode(raw).decode("ascii")
+
+
+def _ss_link(host, port, method, password, remark):
+    if not (host and port and method and password):
+        return None
+    cred = base64.urlsafe_b64encode(f"{method}:{password}".encode("utf-8")).decode("ascii").rstrip("=")
+    return f"ss://{cred}@{_hostport_str(host)}:{port}{_frag(remark)}"
+
+
+def _xray_stream_params(ss):
+    """streamSettings (xray) -> параметры ссылки. None — транспорт не поддерживается / цепочка."""
+    ss = ss or {}
+    if (ss.get("sockopt") or {}).get("dialerProxy"):
+        return None
+    net = str(ss.get("network") or "tcp").lower()
+    sec = str(ss.get("security") or "none").lower()
+    if net in ("raw", ""):
+        net = "tcp"
+    p = {"type": net, "security": sec}
+
+    if net == "ws":
+        s = ss.get("wsSettings") or {}
+        h = s.get("headers") or {}
+        p["path"] = s.get("path") or "/"
+        p["host"] = s.get("host") or h.get("Host") or h.get("host")
+    elif net == "grpc":
+        p["serviceName"] = (ss.get("grpcSettings") or {}).get("serviceName")
+    elif net in ("xhttp", "splithttp"):
+        s = ss.get("xhttpSettings") or ss.get("splithttpSettings") or {}
+        p["type"] = "xhttp"
+        p["path"] = s.get("path") or "/"
+        p["host"] = s.get("host")
+        p["mode"] = s.get("mode")
+        if s.get("extra"):
+            p["extra"] = json.dumps(s["extra"], ensure_ascii=False, separators=(",", ":"))
+    elif net == "httpupgrade":
+        s = ss.get("httpupgradeSettings") or {}
+        p["path"] = s.get("path") or "/"
+        p["host"] = s.get("host")
+    elif net in ("h2", "http"):
+        s = ss.get("httpSettings") or {}
+        p["type"] = "h2"
+        p["path"] = s.get("path") or "/"
+        p["host"] = _first_of(s.get("host"))
+    elif net == "tcp":
+        hdr = (((ss.get("tcpSettings") or ss.get("rawSettings") or {}).get("header")) or {}).get("type")
+        if hdr and str(hdr).lower() != "none":
+            return None
+    else:
+        return None
+
+    if sec == "tls":
+        t = ss.get("tlsSettings") or {}
+        p["sni"] = t.get("serverName")
+        p["fp"] = t.get("fingerprint")
+        p["alpn"] = _listify(t.get("alpn"))
+        if t.get("allowInsecure"):
+            p["allowInsecure"] = 1
+    elif sec == "reality":
+        r = ss.get("realitySettings") or {}
+        p["sni"] = r.get("serverName")
+        p["fp"] = r.get("fingerprint")
+        p["pbk"] = r.get("publicKey") or r.get("password")
+        p["sid"] = r.get("shortId")
+        p["spx"] = r.get("spiderX")
+    elif sec != "none":
+        return None
+    return p
+
+
+def _xray_ob_to_link(ob, remark):
+    proto = str(ob.get("protocol") or "").lower()
+    if proto not in ("vless", "vmess", "trojan", "shadowsocks", "hysteria") or ob.get("proxySettings"):
+        return None
+    st = ob.get("settings") or {}
+    ss = ob.get("streamSettings")
+
+    if proto in ("vless", "vmess"):
+        vn = _first_of(st.get("vnext")) or st          # классический vnext и «плоский» формат
+        host, port = vn.get("address"), vn.get("port")
+        user = _first_of(vn.get("users")) or vn
+        uid = user.get("id")
+        p = _xray_stream_params(ss)
+        if p is None or not (host and port and uid):
+            return None
+        if proto == "vmess":
+            return _vmess_link(host, port, uid, user.get("alterId"), user.get("security"), p, remark)
+        q = {"encryption": user.get("encryption") or "none", "flow": user.get("flow"), **p}
+        return f"vless://{uid}@{_hostport_str(host)}:{port}?{_qs(q)}{_frag(remark)}"
+
+    if proto == "trojan":
+        sv = _first_of(st.get("servers")) or st
+        host, port, pw = sv.get("address"), sv.get("port"), sv.get("password")
+        p = _xray_stream_params(ss)
+        if p is None or not (host and port and pw):
+            return None
+        return f"trojan://{quote(str(pw), safe='')}@{_hostport_str(host)}:{port}?{_qs(p)}{_frag(remark)}"
+
+    if proto == "shadowsocks":
+        sv = _first_of(st.get("servers")) or st
+        return _ss_link(sv.get("address"), sv.get("port"), sv.get("method"), sv.get("password"), remark)
+
+    # hysteria (xray ≥ 26, версия 2) -> hy2://
+    host, port = st.get("address"), st.get("port")
+    hs = (ss or {}).get("hysteriaSettings") or {}
+    auth = hs.get("auth")
+    if str(hs.get("version", st.get("version", 2))) != "2" or not (host and port and auth):
+        return None
+    t = (ss or {}).get("tlsSettings") or {}
+    q = {"sni": t.get("serverName"), "alpn": _listify(t.get("alpn")),
+         "insecure": 1 if t.get("allowInsecure") else None}
+    return f"hy2://{quote(str(auth), safe='')}@{_hostport_str(host)}:{port}?{_qs(q)}{_frag(remark)}"
+
+
+def _singbox_params(ob):
+    tls = ob.get("tls") or {}
+    tr = ob.get("transport") or {}
+    net = str(tr.get("type") or "tcp").lower()
+    p = {"type": net, "security": "none"}
+    if net == "ws":
+        h = tr.get("headers") or {}
+        p["path"] = tr.get("path") or "/"
+        p["host"] = _first_of(h.get("Host") or h.get("host"))
+    elif net == "grpc":
+        p["serviceName"] = tr.get("service_name")
+    elif net == "httpupgrade":
+        p["path"] = tr.get("path") or "/"
+        p["host"] = _first_of(tr.get("host"))
+    elif net == "http":
+        p["type"] = "h2"
+        p["path"] = _first_of(tr.get("path")) or "/"
+        p["host"] = _first_of(tr.get("host"))
+    elif net != "tcp":
+        return None
+    if tls.get("enabled"):
+        rl = tls.get("reality") or {}
+        p["security"] = "reality" if rl.get("enabled") else "tls"
+        p["sni"] = tls.get("server_name")
+        p["fp"] = (tls.get("utls") or {}).get("fingerprint")
+        p["alpn"] = _listify(tls.get("alpn"))
+        if tls.get("insecure"):
+            p["allowInsecure"] = 1
+        if rl.get("enabled"):
+            p["pbk"] = rl.get("public_key")
+            p["sid"] = rl.get("short_id")
+    return p
+
+
+def _singbox_ob_to_link(ob, remark):
+    t = str(ob.get("type") or "").lower()
+    if t not in ("vless", "vmess", "trojan", "shadowsocks", "hysteria2") or ob.get("detour"):
+        return None
+    host, port = ob.get("server"), ob.get("server_port")
+    ports = ob.get("server_ports")
+
+    if t == "hysteria2":
+        pw = ob.get("password")
+        if not port and ports:
+            port = str(_first_of(ports)).replace("-", ":").split(":")[0]
+        if not (host and port and pw):
+            return None
+        tls = ob.get("tls") or {}
+        q = {"sni": tls.get("server_name"), "alpn": _listify(tls.get("alpn")),
+             "insecure": 1 if tls.get("insecure") else None}
+        obfs = ob.get("obfs") or {}
+        if str(obfs.get("type") or "").lower() == "salamander" and obfs.get("password"):
+            q["obfs"] = "salamander"
+            q["obfs-password"] = obfs.get("password")
+        if ports:
+            q["mport"] = ",".join(str(x).replace(":", "-") for x in ports)
+        return f"hy2://{quote(str(pw), safe='')}@{_hostport_str(host)}:{port}?{_qs(q)}{_frag(remark)}"
+
+    if not (host and port):
+        return None
+    if t == "shadowsocks":
+        if ob.get("plugin"):
+            return None
+        return _ss_link(host, port, ob.get("method"), ob.get("password"), remark)
+
+    p = _singbox_params(ob)
+    if p is None:
+        return None
+    if t == "vless":
+        uid = ob.get("uuid")
+        if not uid:
+            return None
+        q = {"encryption": "none", "flow": ob.get("flow"), **p}
+        return f"vless://{uid}@{_hostport_str(host)}:{port}?{_qs(q)}{_frag(remark)}"
+    if t == "vmess":
+        uid = ob.get("uuid")
+        if not uid:
+            return None
+        return _vmess_link(host, port, uid, ob.get("alter_id"), ob.get("security"), p, remark)
+    pw = ob.get("password")        # trojan
+    if not pw:
+        return None
+    return f"trojan://{quote(str(pw), safe='')}@{_hostport_str(host)}:{port}?{_qs(p)}{_frag(remark)}"
+
+
+def _json_values(raw):
+    """Все JSON-значения из ответа подписки: целиком, из base64 или построчно."""
+    texts = [raw or ""]
+    if raw and not raw.lstrip().startswith(("{", "[")):
+        dec = b64decode_safe(raw)
+        if dec and dec.lstrip().startswith(("{", "[")):
+            texts.append(dec)
+    out = []
+    for text in texts:
+        t = text.strip()
+        if not t:
+            continue
+        try:
+            out.append(json.loads(t))
+            continue
+        except Exception:
+            pass
+        for line in t.splitlines():
+            line = line.strip()
+            if line[:1] in ("{", "["):
+                try:
+                    out.append(json.loads(line))
+                except Exception:
+                    pass
+    return out
+
+
+def json_to_links(raw):
+    """JSON-подписка (xray / sing-box, объект или массив) -> список обычных ссылок."""
+    links = []
+    for val in _json_values(raw):
+        for obj in (val if isinstance(val, list) else [val]):
+            if isinstance(obj, str) and obj.startswith(PROTOCOLS):
+                links.append(obj.strip())
+                continue
+            if not isinstance(obj, dict):
+                continue
+            remark = obj.get("remarks") or obj.get("remark") or obj.get("ps") or obj.get("name") or ""
+            outs = obj.get("outbounds")
+            if not isinstance(outs, list):
+                outs = [obj] if (obj.get("protocol") or obj.get("type")) else []
+            for ob in outs:
+                if not isinstance(ob, dict):
+                    continue
+                try:
+                    if "protocol" in ob:
+                        link = _xray_ob_to_link(ob, remark)
+                    elif "type" in ob:
+                        link = _singbox_ob_to_link(ob, remark)
+                    else:
+                        link = None
+                except Exception:
+                    link = None
+                if link:
+                    links.append(link)
+    return list(dict.fromkeys(links))
+
+
+# ============================================================
 # СКАЧИВАНИЕ ПОДПИСОК (с подменой HWID, сменой User-Agent и повтором,
 # если ответ пустой — частая заглушка у подписок с привязкой к устройству;
 # на последней попытке — без проверки SSL)
@@ -1801,8 +2228,12 @@ async def fetch_source(session, url):
                 response.raise_for_status()
                 raw = await response.text(errors="ignore")
             configs = extract_lines(raw)
+            json_links = json_to_links(raw)          # .json-конфиги -> vless / vmess / trojan / ss / hy2
+            if json_links:
+                configs = list(dict.fromkeys(configs + json_links))
             if configs:
-                print(f"[i] {short_name(url)}: {len(configs)}")
+                extra = f" (из JSON: {len(json_links)})" if json_links else ""
+                print(f"[i] {short_name(url)}: {len(configs)}{extra}")
                 return url, configs
             last_err = "в ответе нет конфигов"
         except Exception as e:
@@ -1943,328 +2374,3 @@ async def select_best(session, items):
             return RU_FAIL_OPEN
         if not res:
             st["dropped"] += 1
-            _reject("недоступен из РФ (check-host TCP)")
-        return res
-
-    async def confirm_ok(config, first_score):
-        if not CONFIRM_BEST:
-            return first_score
-        scores = [first_score]
-        for i in range(CONFIRM_RUNS):
-            if i:
-                await asyncio.sleep(CONFIRM_PAUSE)   # пауза вне семафора — слот не занят
-            async with cf_sem:
-                try:
-                    latency = await real_check(config)
-                except Exception:
-                    latency = None
-            if latency is None or latency > MAX_PING_MS:
-                return None
-            scores.append(latency)
-        return sum(scores) / len(scores)
-
-    async def one(config, score):
-        ru, avg = await asyncio.gather(ru_ok(config), confirm_ok(config, score))
-        if ru and avg is not None:
-            confirmed.append((config, avg))
-
-    idx = 0
-    while idx < len(items) and len(confirmed) < TARGET_COUNT:
-        if use_ru and st["checked"] >= RU_MAX_CHECKS and not _ru_api_dead:
-            print(f"[i] Лимит проверок «из РФ» ({RU_MAX_CHECKS}) исчерпан")
-            break
-        need = TARGET_COUNT - len(confirmed)
-        chunk = items[idx: idx + need + CONFIRM_SPARE]
-        idx += len(chunk)
-        await asyncio.gather(*(one(c, s) for c, s in chunk))
-        print(f"    [{elapsed()}] подтверждено {len(confirmed)}/{TARGET_COUNT} "
-              f"(просмотрено {idx}/{len(items)}; из РФ: проверено {st['checked']}, "
-              f"отсеяно {st['dropped']}, неизвестно {st['unknown']})")
-
-    if _ru_api_dead:
-        print("[!] check-host.net перестал отвечать — часть конфигов взята без проверки «из РФ»")
-
-    confirmed.sort(key=lambda x: x[1])
-    return confirmed
-
-
-def interleave(a, b):
-    """Чередует два списка: a1, b1, a2, b2, ... (чтобы hy2 не оказался
-    в хвосте и не отрезался ранней остановкой)."""
-    return [x for pair in itertools.zip_longest(a, b) for x in pair if x is not None]
-
-
-# ============================================================
-# MAIN
-# ============================================================
-
-async def main():
-    global _my_ip
-
-    try:  # вывод сразу, без буфера (важно для CI) и в UTF-8 (эмодзи в логе)
-        sys.stdout.reconfigure(line_buffering=True, encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
-    init_port_pool(CONCURRENCY)
-
-    winter = winter_on()
-    if winter:
-        print("[i] ❄️ Зимний режим: названия с тегами скорости")
-    if HWID_SPOOF:
-        print(f"[i] HWID: {HWID[:6]}… ({HWID_MODEL}, {HWID_OS} {HWID_OS_VER})")
-
-    hy2_enabled = CHECK_HY2 and shutil.which(SINGBOX_BINARY) is not None
-    if CHECK_HY2 and not hy2_enabled:
-        print(f"[!] {SINGBOX_BINARY} не найден в PATH — hy2 проверяться не будет")
-
-    async with aiohttp.ClientSession() as session:
-        # наш реальный IP (без прокси) — для проверки утечки
-        try:
-            _my_ip = await asyncio.wait_for(fetch_ip(session), 20)
-        except Exception:
-            _my_ip = None
-        print(f"[i] Мой IP: {_my_ip or 'не определён (проверка совпадения с моим IP отключена)'}")
-
-        # ---------- 1. скачиваем ВСЕ подписки ----------
-        stage("Скачиваю подписки...")
-        results = await asyncio.gather(*(fetch_source(session, u) for u in SOURCES),
-                                       return_exceptions=True)
-
-        all_configs = []
-        source_of = {}  # ключ конфига -> url источника (первого, где он встретился)
-        for i, r in enumerate(results, 1):
-            if isinstance(r, tuple):
-                url, cfgs = r
-                for c in cfgs:
-                    source_of.setdefault(dedupe_key(c), url)
-                all_configs.extend(cfgs)
-            else:
-                print(f"[!] Источник #{i}: ошибка {str(r)[:60]}")
-
-        print(f"[i] Всего скачано: {len(all_configs)}")
-
-        # ---------- 2. удаляем дубликаты (до проверки — экономит время) ----------
-        # закреплённые никогда не удаляются; из подписок убираются только те,
-        # что уже есть среди закреплённых или повторяются внутри подписок
-        pinned = [c.strip() for c in PINNED_CONFIGS if c.strip()]
-        pinned_protos = [c for c in pinned if c.startswith(PROTOCOLS)]
-        seen = {dedupe_key(c) for c in pinned_protos}
-        seen_settings = {settings_key(c) for c in pinned_protos} if DEDUPE_BY_SETTINGS else set()
-
-        unique = []
-        same_settings = 0
-        for c in all_configs:
-            k = dedupe_key(c)
-            if k in seen:
-                continue
-            seen.add(k)
-            if DEDUPE_BY_SETTINGS:
-                sk = settings_key(c)
-                if sk in seen_settings:
-                    same_settings += 1      # те же настройки, другой uuid/пароль
-                    continue
-                seen_settings.add(sk)
-            unique.append(c)
-
-        print(f"[i] После удаления дубликатов: {len(unique)} "
-              f"(из них одинаковых настроек с другим uuid убрано: {same_settings})")
-
-        # что проверяем: vless/vmess/trojan/ss через xray, hy2 через sing-box
-        xray_cands = [c for c in unique if c.startswith(XRAY_SUPPORTED)]
-        hy2_cands = [c for c in unique if c.startswith(HY2_SCHEMES)] if hy2_enabled else []
-        skipped = len(unique) - len(xray_cands) - len(hy2_cands)
-        if skipped:
-            what = "tuic/ssr" if hy2_enabled else "hy2/tuic/ssr"
-            print(f"[i] Без проверки ({what}): {skipped}")
-
-        if not xray_cands and not hy2_cands:
-            print("[x] Нет конфигов для проверки.")
-            return
-
-        # статистика по источникам: url -> [проверено, нерабочих]
-        stats = {}
-
-        def count(config, ok):
-            s = stats.setdefault(source_of.get(dedupe_key(config)), [0, 0])
-            s[0] += 1
-            if not ok:
-                s[1] += 1
-
-        # ---------- 3. быстрая TCP-проверка (только не-hy2) ----------
-        alive = []
-        if xray_cands:
-            stage(f"TCP: проверяю {len(xray_cands)}...")
-            alive = await tcp_filter(xray_cands)
-            alive_set = {c for c, _ in alive}
-            for c in xray_cands:
-                if c not in alive_set:
-                    count(c, False)
-            print(f"[i] TCP ок: {len(alive)} из {len(xray_cands)}")
-
-        # самые быстрые по TCP проверяем первыми
-        alive.sort(key=lambda x: x[1])
-        tcp_ok = [c for c, _ in alive]
-
-        if hy2_cands:
-            print(f"[i] Hy2 (UDP, без TCP-проверки): {len(hy2_cands)}")
-
-        candidates = interleave(tcp_ok, hy2_cands)
-        if not candidates:
-            print("[x] Ни один сервер не ответил по TCP.")
-            return
-
-        # ---------- 3.1 реальная проверка (быстрый шлюз — её первый шаг) ----------
-        stage(f"Реальная проверка: {len(candidates)} "
-              f"(xray: {len(tcp_ok)}, hy2: {len(hy2_cands)})...")
-        working, failed = await check_all(candidates)
-        for c, _ in working:
-            count(c, True)
-        for c in failed:
-            count(c, False)
-        hy2_ok = sum(1 for c, _ in working if c.startswith(HY2_SCHEMES))
-        print(f"[✓] Рабочих: {len(working)} (из них hy2: {hy2_ok})")
-
-        if not working:
-            print("[x] Рабочих конфигов нет.")
-            if _fail:
-                print("\n[i] Причины отказов:")
-                for reason, n in _fail.most_common():
-                    print(f"    {n:>5}  {reason}")
-            return
-
-        # ---------- 4. лучшие по баллу: без дублей, «из РФ» + повторная проверка ----------
-        working.sort(key=lambda x: x[1])
-
-        # IP:порт закреплённых тоже считаем занятыми
-        taken = set()
-        for c in pinned:
-            if not c.startswith(PROTOCOLS):
-                continue
-            hp = get_host_port(c)
-            if hp:
-                ip = await resolve_ip(hp[0])
-                taken.add((ip or hp[0], hp[1]))
-
-        before = len(working)
-        working = await dedupe_by_ip(working, taken)
-        print(f"[i] Убрал дубли и «фермы» подсетей: {before - len(working)} (осталось {len(working)})")
-
-        working = cap_hy2(working)
-
-        stage("Отбор лучших (из РФ + повторный прогон одновременно)...")
-        best = await select_best(session, working)
-        best = best[:TARGET_COUNT]
-        print(f"[i] Беру лучших: {len(best)}")
-
-        if not best:
-            print("[x] После отбора рабочих не осталось.")
-            if _fail:
-                print("\n[i] Причины отказов:")
-                for reason, n in _fail.most_common():
-                    print(f"    {n:>5}  {reason}")
-            return
-
-        # ---------- 5. страна/город по реальному выходному IP + каскады ----------
-        stage("Определяю страны, города и каскады...")
-        geo_sem = asyncio.Semaphore(GEO_CITY_CONCURRENCY)
-
-        async def geo_one(config):
-            code = _trace_loc.get(config)             # страна — Cloudflare trace (из проверки)
-            exit_ip = _exit_ip.get(config)
-            async with geo_sem:
-                if code:
-                    city = await city_lookup(session, exit_ip, code)
-                    return code, make_geo_name(code, city)
-                if exit_ip:                           # trace не ответил — консенсус сервисов
-                    return await geo_lookup(session, exit_ip)
-            return None, None
-
-        async def entry_stage():
-            entry_ip = {}
-            hosts = {get_host_port(c)[0] for c, _ in best if get_host_port(c)}
-            await asyncio.gather(*(resolve_ip(h) for h in hosts))
-            for c, _ in best:
-                hp = get_host_port(c)
-                if hp and _dns_cache.get(hp[0]):
-                    entry_ip[c] = _dns_cache[hp[0]]
-            geo = await entry_geo_batch(session, entry_ip.values()) if entry_ip else {}
-            return entry_ip, geo
-
-        geos, (entry_ip, entry_geo) = await asyncio.gather(
-            asyncio.gather(*(geo_one(c) for c, _ in best)),
-            entry_stage(),
-        )
-
-        items = []  # (country_name, latency, renamed_line)
-        cascades = 0
-        gemini_n = 0
-        for (config, latency), (code, name) in zip(best, geos):
-            final_name = name or "🌐 Неизвестно"
-
-            # каскад: страна ВХОДА (сервер из конфига) ≠ страна выхода; вход не за CDN
-            ip = entry_ip.get(config)
-            eg = entry_geo.get(ip) if ip else None
-            if code and eg and ip != _exit_ip.get(config) and eg[0] != code.upper() \
-                    and not any(w in eg[1] for w in CDN_WORDS):
-                final_name = f"{get_country_flag(eg[0])} -> {final_name}"  # {флаг входа} -> {флаг выхода} ...
-                cascades += 1
-
-            if winter:
-                final_name += f" {winter_tag(latency)}"
-            if LTE_TAG_ENABLED and is_lte(config):
-                final_name += f" {LTE_TAG}"             # тип интернета
-            if GEMINI_CHECK and _gemini.get(config):
-                final_name += f" {GEMINI_TAG}"          # Gemini — самым последним
-                gemini_n += 1
-
-            country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
-            items.append((country_key, latency, rename_config(config, final_name)))
-
-        print(f"[i] Каскадов: {cascades}, Gemini {GEMINI_TAG}: {gemini_n}")
-
-        # группируем по стране, внутри страны — по баллу
-        items.sort(key=lambda x: (x[0], x[1]))
-        renamed = [line for _, _, line in items]
-
-    # ---------- 6. сохраняем ----------
-    header = winter_header(pinned) if winter else pinned
-    final_list = header + renamed
-
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_FILE.write_text("\n".join(final_list) + "\n", encoding="utf-8")
-
-    print()
-    print(f"[✓] Готово за {elapsed()}: {len(final_list)} (закр. {len(pinned)} + {len(renamed)})")
-    print(f"[✓] Файл: {OUTPUT_FILE}")
-
-    # ---------- 7. почему отсеивались ----------
-    if _fail:
-        print("\n[i] Причины отказов (подсказка, какой порог ослабить):")
-        for reason, n in _fail.most_common():
-            print(f"    {n:>5}  {reason}")
-
-    # ---------- 8. где больше всего нерабочих ----------
-    rows = [(url, tested, bad) for url, (tested, bad) in stats.items() if url and tested]
-    if rows:
-        rows.sort(key=lambda r: r[2], reverse=True)
-        print("\n[i] Нерабочих по источникам:")
-        for n, (url, tested, bad) in enumerate(rows):
-            icon = "🥴" if n == 0 else "  "
-            print(f"{icon} {short_name(url)}: {bad}/{tested} ({bad * 100 // tested}%)")
-        top_url, top_tested, top_bad = rows[0]
-        print(f"\n[!] Больше всего нерабочих: {short_name(top_url)} ({top_bad} из {top_tested})")
-
-    write_step_summary([
-        "### PizdukVPN ЧС ❄️",
-        f"- Время: **{elapsed()}**",
-        f"- В подписке: **{len(renamed)}** (закреплённых {len(pinned)})",
-        f"- Каскадов: {cascades}, Gemini {GEMINI_TAG}: {gemini_n}",
-    ] + [f"- {n} × {reason}" for reason, n in _fail.most_common(5)])
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n[!] Остановлено.")

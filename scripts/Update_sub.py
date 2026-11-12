@@ -49,7 +49,7 @@ SOURCES = [
 # ============================================================
 
 PINNED_CONFIGS = [
-    "#profile-titleile-title: PizdukVPN ЧС🏴",
+    "#profile-title: PizdukVPN ЧС🏴",
     "#announce: base64: 8J+YjiDQotC10LvQtdCz0YDQsNC8INC60LDQvdCw0Ls6IEBQaXpNb2Twn5iNCvCfpbPQkNCy0YLQvtC+0LHQvdC+0LLQu9C10L3QuNC1INC60LDQttC00YvQtSA2INGH0LDRgdC+0LLwn6Sv",
     "#profile-web-page-url: t.me/PizMod",
     "#support-url: t.me/Harachok",
@@ -2369,3 +2369,330 @@ async def select_best(session, items):
             return RU_FAIL_OPEN
         if not res:
             st["dropped"] += 1
+            _reject("недоступен из РФ (check-host TCP)")
+        return res
+
+    async def confirm_ok(config, first_score):
+        if not CONFIRM_BEST:
+            return first_score
+        scores = [first_score]
+        for i in range(CONFIRM_RUNS):
+            if i:
+                await asyncio.sleep(CONFIRM_PAUSE)   # пауза вне семафора — слот не занят
+            async with cf_sem:
+                try:
+                    latency = await real_check(config)
+                except Exception:
+                    latency = None
+            if latency is None or latency > MAX_PING_MS:
+                return None
+            scores.append(latency)
+        return sum(scores) / len(scores)
+
+    async def one(config, score):
+        ru, avg = await asyncio.gather(ru_ok(config), confirm_ok(config, score))
+        if ru and avg is not None:
+            confirmed.append((config, avg))
+
+    idx = 0
+    while idx < len(items) and len(confirmed) < TARGET_COUNT:
+        if use_ru and st["checked"] >= RU_MAX_CHECKS and not _ru_api_dead:
+            print(f"[i] Лимит проверок «из РФ» ({RU_MAX_CHECKS}) исчерпан")
+            break
+        need = TARGET_COUNT - len(confirmed)
+        chunk = items[idx: idx + need + CONFIRM_SPARE]
+        idx += len(chunk)
+        await asyncio.gather(*(one(c, s) for c, s in chunk))
+        print(f"    [{elapsed()}] подтверждено {len(confirmed)}/{TARGET_COUNT} "
+              f"(просмотрено {idx}/{len(items)}; из РФ: проверено {st['checked']}, "
+              f"отсеяно {st['dropped']}, неизвестно {st['unknown']})")
+
+    if _ru_api_dead:
+        print("[!] check-host.net перестал отвечать — часть конфигов взята без проверки «из РФ»")
+
+    confirmed.sort(key=lambda x: x[1])
+    return confirmed
+
+
+def interleave(a, b):
+    """Чередует два списка: a1, b1, a2, b2, ... (чтобы hy2 не оказался
+    в хвосте и не отрезался ранней остановкой)."""
+    return [x for pair in itertools.zip_longest(a, b) for x in pair if x is not None]
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+async def main():
+    global _my_ip
+
+    try:  # вывод сразу, без буфера (важно для CI) и в UTF-8 (эмодзи в логе)
+        sys.stdout.reconfigure(line_buffering=True, encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+    init_port_pool(CONCURRENCY)
+
+    winter = winter_on()
+    if winter:
+        print("[i] ❄️ Зимний режим: названия с тегами скорости")
+    if HWID_SPOOF:
+        print(f"[i] HWID: {HWID[:6]}… ({HWID_MODEL}, {HWID_OS} {HWID_OS_VER})")
+
+    hy2_enabled = CHECK_HY2 and shutil.which(SINGBOX_BINARY) is not None
+    if CHECK_HY2 and not hy2_enabled:
+        print(f"[!] {SINGBOX_BINARY} не найден в PATH — hy2 проверяться не будет")
+
+    async with aiohttp.ClientSession() as session:
+        # наш реальный IP (без прокси) — для проверки утечки
+        try:
+            _my_ip = await asyncio.wait_for(fetch_ip(session), 20)
+        except Exception:
+            _my_ip = None
+        print(f"[i] Мой IP: {_my_ip or 'не определён (проверка совпадения с моим IP отключена)'}")
+
+        # ---------- 1. скачиваем ВСЕ подписки ----------
+        lte_task = asyncio.ensure_future(load_lte_lists(session))   # белые списки для 📶
+        stage("Скачиваю подписки...")
+        results = await asyncio.gather(*(fetch_source(session, u) for u in SOURCES),
+                                       return_exceptions=True)
+
+        all_configs = []
+        source_of = {}  # ключ конфига -> url источника (первого, где он встретился)
+        for i, r in enumerate(results, 1):
+            if isinstance(r, tuple):
+                url, cfgs = r
+                for c in cfgs:
+                    source_of.setdefault(dedupe_key(c), url)
+                all_configs.extend(cfgs)
+            else:
+                print(f"[!] Источник #{i}: ошибка {str(r)[:60]}")
+
+        print(f"[i] Всего скачано: {len(all_configs)}")
+
+        # ---------- 2. удаляем дубликаты (до проверки — экономит время) ----------
+        # закреплённые никогда не удаляются; из подписок убираются только те,
+        # что уже есть среди закреплённых или повторяются внутри подписок
+        pinned = [c.strip() for c in PINNED_CONFIGS if c.strip()]
+        pinned_protos = [c for c in pinned if c.startswith(PROTOCOLS)]
+        seen = {dedupe_key(c) for c in pinned_protos}
+        seen_settings = {settings_key(c) for c in pinned_protos} if DEDUPE_BY_SETTINGS else set()
+
+        unique = []
+        same_settings = 0
+        for c in all_configs:
+            k = dedupe_key(c)
+            if k in seen:
+                continue
+            seen.add(k)
+            if DEDUPE_BY_SETTINGS:
+                sk = settings_key(c)
+                if sk in seen_settings:
+                    same_settings += 1      # те же настройки, другой uuid/пароль
+                    continue
+                seen_settings.add(sk)
+            unique.append(c)
+
+        print(f"[i] После удаления дубликатов: {len(unique)} "
+              f"(из них одинаковых настроек с другим uuid убрано: {same_settings})")
+
+        # что проверяем: vless/vmess/trojan/ss через xray, hy2 через sing-box
+        xray_cands = [c for c in unique if c.startswith(XRAY_SUPPORTED)]
+        hy2_cands = [c for c in unique if c.startswith(HY2_SCHEMES)] if hy2_enabled else []
+        skipped = len(unique) - len(xray_cands) - len(hy2_cands)
+        if skipped:
+            what = "tuic/ssr" if hy2_enabled else "hy2/tuic/ssr"
+            print(f"[i] Без проверки ({what}): {skipped}")
+
+        if not xray_cands and not hy2_cands:
+            print("[x] Нет конфигов для проверки.")
+            return
+
+        # статистика по источникам: url -> [проверено, нерабочих]
+        stats = {}
+
+        def count(config, ok):
+            s = stats.setdefault(source_of.get(dedupe_key(config)), [0, 0])
+            s[0] += 1
+            if not ok:
+                s[1] += 1
+
+        # ---------- 3. быстрая TCP-проверка (только не-hy2) ----------
+        alive = []
+        if xray_cands:
+            stage(f"TCP: проверяю {len(xray_cands)}...")
+            alive = await tcp_filter(xray_cands)
+            alive_set = {c for c, _ in alive}
+            for c in xray_cands:
+                if c not in alive_set:
+                    count(c, False)
+            print(f"[i] TCP ок: {len(alive)} из {len(xray_cands)}")
+
+        # самые быстрые по TCP проверяем первыми
+        alive.sort(key=lambda x: x[1])
+        tcp_ok = [c for c, _ in alive]
+
+        if hy2_cands:
+            print(f"[i] Hy2 (UDP, без TCP-проверки): {len(hy2_cands)}")
+
+        candidates = interleave(tcp_ok, hy2_cands)
+        if not candidates:
+            print("[x] Ни один сервер не ответил по TCP.")
+            return
+
+        # ---------- 3.1 реальная проверка (быстрый шлюз — её первый шаг) ----------
+        stage(f"Реальная проверка: {len(candidates)} "
+              f"(xray: {len(tcp_ok)}, hy2: {len(hy2_cands)})...")
+        working, failed = await check_all(candidates)
+        for c, _ in working:
+            count(c, True)
+        for c in failed:
+            count(c, False)
+        hy2_ok = sum(1 for c, _ in working if c.startswith(HY2_SCHEMES))
+        print(f"[✓] Рабочих: {len(working)} (из них hy2: {hy2_ok})")
+
+        if not working:
+            print("[x] Рабочих конфигов нет.")
+            if _fail:
+                print("\n[i] Причины отказов:")
+                for reason, n in _fail.most_common():
+                    print(f"    {n:>5}  {reason}")
+            return
+
+        # ---------- 4. лучшие по баллу: без дублей, «из РФ» + повторная проверка ----------
+        working.sort(key=lambda x: x[1])
+
+        # IP:порт закреплённых тоже считаем занятыми
+        taken = set()
+        for c in pinned:
+            if not c.startswith(PROTOCOLS):
+                continue
+            hp = get_host_port(c)
+            if hp:
+                ip = await resolve_ip(hp[0])
+                taken.add((ip or hp[0], hp[1]))
+
+        before = len(working)
+        working = await dedupe_by_ip(working, taken)
+        print(f"[i] Убрал дубли и «фермы» подсетей: {before - len(working)} (осталось {len(working)})")
+
+        working = cap_hy2(working)
+
+        stage("Отбор лучших (из РФ + повторный прогон одновременно)...")
+        best = await select_best(session, working)
+        best = best[:TARGET_COUNT]
+        print(f"[i] Беру лучших: {len(best)}")
+
+        if not best:
+            print("[x] После отбора рабочих не осталось.")
+            if _fail:
+                print("\n[i] Причины отказов:")
+                for reason, n in _fail.most_common():
+                    print(f"    {n:>5}  {reason}")
+            return
+
+        # ---------- 5. страна/город по реальному выходному IP + каскады ----------
+        await lte_task                                  # белые списки для 📶
+        stage("Определяю страны, города и каскады...")
+        geo_sem = asyncio.Semaphore(GEO_CITY_CONCURRENCY)
+
+        async def geo_one(config):
+            code = _trace_loc.get(config)             # страна — Cloudflare trace (из проверки)
+            exit_ip = _exit_ip.get(config)
+            async with geo_sem:
+                if code:
+                    city = await city_lookup(session, exit_ip, code)
+                    return code, make_geo_name(code, city)
+                if exit_ip:                           # trace не ответил — консенсус сервисов
+                    return await geo_lookup(session, exit_ip)
+            return None, None
+
+        async def entry_stage():
+            entry_ip = {}
+            hosts = {get_host_port(c)[0] for c, _ in best if get_host_port(c)}
+            await asyncio.gather(*(resolve_ip(h) for h in hosts))
+            for c, _ in best:
+                hp = get_host_port(c)
+                if hp and _dns_cache.get(hp[0]):
+                    entry_ip[c] = _dns_cache[hp[0]]
+            geo = await entry_geo_batch(session, entry_ip.values()) if entry_ip else {}
+            return entry_ip, geo
+
+        geos, (entry_ip, entry_geo) = await asyncio.gather(
+            asyncio.gather(*(geo_one(c) for c, _ in best)),
+            entry_stage(),
+        )
+
+        items = []  # (country_name, latency, renamed_line)
+        cascades = 0
+        gemini_n = 0
+        for (config, latency), (code, name) in zip(best, geos):
+            final_name = name or "🌐 Неизвестно"
+
+            # каскад: страна ВХОДА (сервер из конфига) ≠ страна выхода; вход не за CDN
+            ip = entry_ip.get(config)
+            eg = entry_geo.get(ip) if ip else None
+            if code and eg and ip != _exit_ip.get(config) and eg[0] != code.upper() \
+                    and not any(w in eg[1] for w in CDN_WORDS):
+                final_name = f"{get_country_flag(eg[0])} -> {final_name}"  # {флаг входа} -> {флаг выхода} ...
+                cascades += 1
+
+            if winter:
+                final_name += f" {winter_tag(latency)}"
+            if LTE_TAG_ENABLED and is_lte(config, entry_ip.get(config)):
+                final_name += f" {LTE_TAG}"             # 📶 белые списки
+            if GEMINI_CHECK and _gemini.get(config):
+                final_name += f" {GEMINI_TAG}"          # Gemini — самым последним
+                gemini_n += 1
+
+            country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
+            items.append((country_key, latency, rename_config(config, final_name)))
+
+        print(f"[i] Каскадов: {cascades}, Gemini {GEMINI_TAG}: {gemini_n}")
+
+        # группируем по стране, внутри страны — по баллу
+        items.sort(key=lambda x: (x[0], x[1]))
+        renamed = [line for _, _, line in items]
+
+    # ---------- 6. сохраняем ----------
+    header = winter_header(pinned) if winter else pinned
+    final_list = header + renamed
+
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_FILE.write_text("\n".join(final_list) + "\n", encoding="utf-8")
+
+    print()
+    print(f"[✓] Готово за {elapsed()}: {len(final_list)} (закр. {len(pinned)} + {len(renamed)})")
+    print(f"[✓] Файл: {OUTPUT_FILE}")
+
+    # ---------- 7. почему отсеивались ----------
+    if _fail:
+        print("\n[i] Причины отказов (подсказка, какой порог ослабить):")
+        for reason, n in _fail.most_common():
+            print(f"    {n:>5}  {reason}")
+
+    # ---------- 8. где больше всего нерабочих ----------
+    rows = [(url, tested, bad) for url, (tested, bad) in stats.items() if url and tested]
+    if rows:
+        rows.sort(key=lambda r: r[2], reverse=True)
+        print("\n[i] Нерабочих по источникам:")
+        for n, (url, tested, bad) in enumerate(rows):
+            icon = "🥴" if n == 0 else "  "
+            print(f"{icon} {short_name(url)}: {bad}/{tested} ({bad * 100 // tested}%)")
+        top_url, top_tested, top_bad = rows[0]
+        print(f"\n[!] Больше всего нерабочих: {short_name(top_url)} ({top_bad} из {top_tested})")
+
+    write_step_summary([
+        "### PizdukVPN ЧС ❄️",
+        f"- Время: **{elapsed()}**",
+        f"- В подписке: **{len(renamed)}** (закреплённых {len(pinned)})",
+        f"- Каскадов: {cascades}, Gemini {GEMINI_TAG}: {gemini_n}",
+    ] + [f"- {n} × {reason}" for reason, n in _fail.most_common(5)])
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n[!] Остановлено.")

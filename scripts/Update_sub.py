@@ -48,7 +48,8 @@ SOURCES = [
 # ЗАКРЕПЛЁННЫЕ КОНФИГИ — добавляются в начало БЕЗ проверки
 # ============================================================
 
-PINNED_CONFIGS =profile-titleile-title: PizdukVPN ЧС🏴",
+PINNED_CONFIGS = [
+    "#profile-titleile-title: PizdukVPN ЧС🏴",
     "#announce: base64: 8J+YjiDQotC10LvQtdCz0YDQsNC8INC60LDQvdCw0Ls6IEBQaXpNb2Twn5iNCvCfpbPQkNCy0YLQvtC+0LHQvdC+0LLQu9C10L3QuNC1INC60LDQttC00YvQtSA2INGH0LDRgdC+0LLwn6Sv",
     "#profile-web-page-url: t.me/PizMod",
     "#support-url: t.me/Harachok",

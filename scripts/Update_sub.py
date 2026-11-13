@@ -32,15 +32,22 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
     "https://cat-wife.halyavusvpnus.workers.dev/",
-    "https://mifa.world/puma", #mifa
+    "https://mifa.world/zinc", #mifa
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
     "https://pozor.bond/sub/ry2627uz9cp7", #Лёха иногда вырубает серваки
     "https://v2hub.link/sub/pdsdrvg_qWhwRRhSeUpdN9Bn7qGG2AIuIi319E-QFUs",
+    "https://gitverse.ru/api/repos/europe_vpn/vpn_sub/raw/branch/master/config.txt",
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
-    "https://codeberg.org/telegram-alt_vpn_obxod/obxod_white-black_list/raw/branch/main/subs.txt",
+    "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
+    "https://raw.githubusercontent.com/Diversan313/apex-parser/refs/heads/main/subs/other/exotic/alive_plain_exotic.txt",
+    "https://raw.githubusercontent.com/Diversan313/apex-parser/main/subs/other/AI/alive_AI.txt",
+    "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
+    "https://github.com/theakres/VPN/raw/main/all", #akres
+    "https://owpn-key.duckdns.org/sub/6d55ba5cefd846d19b3b5f94d59a2f3b1eb2e02110da427b",
     "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGaHlqIHCzpm8J09GWd0zeNMb%2BUDgv4dboD2VwU438QTP4MnqUeC52Cr1%2BwMypBkx2AeCuIdXZCocuSDn6up0bvCVvvd5lEzyRfjFZUCiUuH5",
     "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGaHlqIHCzpm8J09GWd0zeNMb%2BUDgv4dboD2VwU438QTP4MnqUeC52Cr1%2BwMypBkx2PeUWfpWpdOUvOeNWrBgAX98qiT06gURdNejXhujIa0P",
+    "https://clck.ru/3Wt8KN#K",
 ]
 
 
@@ -55,29 +62,24 @@ PINNED_CONFIGS = [
     "#support-url: t.me/Harachok",
     "#profile-update-interval: 6",
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=chrome&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=#%F0%9F%95%B8%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B3%F0%9F%87%B1%20%28telegram-only%29%F0%9F%8E%83",
-    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@78.159.250.107:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=safari&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=#%F0%9F%95%B8%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B3%F0%9F%87%B1%20%C2%B2%20%28telegram-only%29%F0%9F%8E%83",
-    "vless://c8c2ddff-825a-46c3-bbdd-4a101de468a7@188.130.209.212:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=thumbs.mycdn-io.ru&fp=firefox&security=reality&pbk=6vubZmkLVtaiFF8JyGFy7XSy2pc7ywN4P625QLKw8wc&sid=11979c0c9b2da371#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F",
+    "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@78.159.250.17:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=firefox&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=#%F0%9F%95%B8%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B3%F0%9F%87%B1%20%C2%B2%20%28telegram-only%29%F0%9F%8E%83",
     "vmess://eyJhZGQiOiJjZi4wc20uY29tIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3M/ZWRcdTAwM2QyMDQ4IiwicG9ydCI6IjgwIiwicHMiOiLwn4e68J+HuCDinKYg0KHQqNCQIOKcpiDwn4yAIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
-    "vmess://eyJhZGQiOiIxNzIuNjcuMTg3LjE0NSIsImFpZCI6IjAiLCJhbHBuIjoiIiwiZnAiOiIiLCJob3N0Ijoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsImlkIjoiMGNmNmQ5NzAtM2YxZC00YWFlLWE5ODktOTJhOGY3NmFlM2RiIiwibmV0Ijoid3MiLCJwYXRoIjoiL3dzP2VkXHUwMDNkMjA0OCIsInBvcnQiOiI4MCIsInBzIjoi8J+HuvCfh7gg0KHQqNCQIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
-    "vless://90157e25-cee1-4217-921e-91f300bc1a24@50.7.227.78:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=50.7.227.78&fp=firefox&security=reality&pbk=1vSZjvhZO01oAEH3b7eebR1qF5dLU1Dq2E7xu8pwGSs&sid=428ef87fd47a3a32#%F0%9F%87%AC%F0%9F%87%A7%20%D0%91%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
-    "vless://2958cf6c-018e-491a-943b-46b4cd38b8ee@200.102.183.38:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=harbor-linen.cdn.cachefleet.com&fp=firefox&security=reality&pbk=cbJT0meF6OhWfMDbbzKbSR1A9Scb6VO1O16pngoKuUU&sid=8728be884a8725db#%F0%9F%87%AC%F0%9F%87%A7%20%D0%91%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
+    "vless://90157e25-cee1-4217-921e-91f300bc1a24@fduknew.titun.su:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=bizorg.su&fp=firefox&security=reality&pbk=1vSZjvhZO01oAEH3b7eebR1qF5dLU1Dq2E7xu8pwGSs&sid=428ef87fd47a3a32#%F0%9F%87%AC%F0%9F%87%A7%20%D0%91%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
+    "vless://26843758-24de-4f76-b5d0-624038e353c4@15d7fft.nl11.h1clayd.click:443/?type=tcp&encryption=none&flow=&sni=15d7fft.nl11.h1clayd.click&fp=firefox&security=reality&pbk=xv6OUZcyzEHXFMTfumuJH-1Rd4NQ0cdmWikek4mm0m4&sid=c71118d9399fb8c2#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20YouTube%20%F0%9F%93%BA",
+    "hy2://Q7US2sEh-2FcYWs-@nl11.h1cloud.net:25339/?hop_interval=10&sni=60c850h.nl11.h1clayd.click#🇳🇱 Нидерланды ⚡ Hy2 YT 📺",
     "vless://33f3c1ee-f026-4f3f-bed3-8c7c01de8a96@user.betust.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=user.betust.net&fp=firefox&security=reality&pbk=TXP6hQVE4PdXDEdDk2k_5_f92jcOKZ15Fuw14jCJTQg&sid=c1064ddb#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
     "vless://50a87e21-f0e2-4b53-a787-91adfe748f63@hollandlanzerotte.xyz:443/?type=raw&encryption=none&flow=xtls-rprx-vision&sni=hollandlanzerotte.xyz&fp=qq&security=reality&pbk=EEL-yDPBfol_fiEEM8Pd0zue7SSz5MtZlXEePVak2jc&sid=#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%F0%9F%90%8C%20Gemini%20%F0%9F%A4%96",
-    "vless://3f5e89d5-591f-4ac9-b071-b05680b573c3@50.7.178.197:8443/?type=grpc&encryption=none&flow=&serviceName=connect-fr&security=tls&sni=fr2.gacvpn.site#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20YT%20%F0%9F%93%BA",
-    "vless://3f5e89d5-591f-4ac9-b071-b05680b573c3@nl4.gacvpn.site:443/?type=ws&encryption=none&flow=&path=%2Fstatic%2Fjs%2Fvendor.cc1645b6.js%3Fed%3D2048&security=tls&sni=nl4.gacvpn.site#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20YT%20%F0%9F%93%BA",
-    "vless://50a87e21-f0e2-4b53-a787-91adfe748f63@swedenafteraventura.space:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=swedenafteraventura.space&fp=chrome&security=reality&pbk=TyuIIquHoesD9YwMQJHda0YZ3Hy9Dh123dQ00iGK0QY&sid=#%F0%9F%87%B8%F0%9F%87%AA%20%E2%9A%A1%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20%E2%9A%A1%20YT%20%F0%9F%93%BA%20AI%F0%9F%A4%96",
+    "vless://804334e2-04ca-434c-8311-3ccee8218175@123466.ru:33664/?type=tcp&encryption=mlkem768x25519plus.native.0rtt.dYzoy51qawu9f3ACOG44G0aOaTyj0hd6m7aRgUwQMFE&flow=#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
+    "hy2://1794613669:ead4a562-edf2-40cf-ad33-13ae98546226%3Aw6rqI78K6gfxJcFQhWRiJ1E9algZc0n57ZAqMSmYlwA@212.41.9.190:36109/?hop_interval=10&sni=hu.lumacache.com#🇭🇺 Венгрия",
     "vless://dd5bed0b-ee77-481b-9f2c-250a632ddd9f@get.jarbook.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=get.jarbook.net&fp=firefox&security=reality&pbk=BIy6H-jndn24Ukyw83ML8LDB1HL8WLJmfCADEy8lzVs&sid=c6f97313#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F",
-    "vless://dd5bed0b-ee77-481b-9f2c-250a632ddd9f@185.189.45.195:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=get.jarbook.net&fp=firefox&security=reality&pbk=BIy6H-jndn24Ukyw83ML8LDB1HL8WLJmfCADEy8lzVs&sid=c6f97313#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20%E2%9A%A1",
-    "vless://67cd3349-f789-4cbb-8b91-4b6b1654ce7c@151.101.36.235:443/?type=xhttp&encryption=none&flow=&host=ovd13.global.ssl.fastly.net&path=%2F&mode=auto&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-1000%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22500000%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2260%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%2216%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%220%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22600-900%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%2C%0A%20%20%22scMaxConcurrentPosts%22%3A%20100%0A%7D&security=tls&sni=accounts.fastly.com&alpn=h3&fp=chrome#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://2958cf6c-018e-491a-943b-46b4cd38b8ee@109.69.218.160:7443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=kind-wolf.cdn.cachefleet.com&fp=firefox&security=reality&pbk=8hse7wRRL-F66rQ-aAeetKTw0MSeJC7Rr6EaDeLzdCU&sid=#%F0%9F%87%A7%F0%9F%87%AA%20%D0%91%D0%B5%D0%BB%D1%8C%D0%B3%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://2958cf6c-018e-491a-943b-46b4cd38b8ee@109.69.218.163:7443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=crisp-titan.cdn.cachefleet.com&fp=firefox&security=reality&pbk=8hse7wRRL-F66rQ-aAeetKTw0MSeJC7Rr6EaDeLzdCU&sid=#%F0%9F%87%A7%F0%9F%87%AA%20%D0%91%D0%B5%D0%BB%D1%8C%D0%B3%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://2958cf6c-018e-491a-943b-46b4cd38b8ee@109.69.218.172:7443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=bold-kestrel.cdn.cachefleet.com&fp=firefox&security=reality&pbk=8hse7wRRL-F66rQ-aAeetKTw0MSeJC7Rr6EaDeLzdCU&sid=#%F0%9F%87%A7%F0%9F%87%AA%20%D0%91%D0%B5%D0%BB%D1%8C%D0%B3%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://2958cf6c-018e-491a-943b-46b4cd38b8ee@109.69.218.210:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=crisp-titan.cdn.cachefleet.com&fp=firefox&security=reality&pbk=8hse7wRRL-F66rQ-aAeetKTw0MSeJC7Rr6EaDeLzdCU&sid=#%F0%9F%87%A7%F0%9F%87%AA%20%D0%91%D0%B5%D0%BB%D1%8C%D0%B3%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://90157e25-cee1-4217-921e-91f300bc1a24@67.159.44.219:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=67.159.44.219&fp=firefox&security=reality&pbk=1vSZjvhZO01oAEH3b7eebR1qF5dLU1Dq2E7xu8pwGSs&sid=428ef87fd47a3a32#%F0%9F%87%AB%F0%9F%87%B7%20%D0%A4%D1%80%D0%B0%D0%BD%D1%86%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
+    "vless://26843758-24de-4f76-b5d0-624038e353c4@71b840t.de7.h1clayd.click:443/?type=tcp&encryption=none&flow=&sni=71b840t.de7.h1clayd.click&fp=firefox&security=reality&pbk=3wFF83gtIA0sXj-6GGCAa--oQbSr0MVUj0FBc-0QmiE&sid=e572b6579ea525d4#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20YouTube%20%F0%9F%93%BA",
+    "hy2://hMwT_el0_wVJ5pxu@de7.h1cloud.net:25784/?hop_interval=10&sni=835dbah.de7.h1clayd.click#🇩🇪 Германия ⚡ Hy2 YT 📺",
+    "vless://67cd3349-f789-4cbb-8b91-4b6b1654ce7c@151.101.36.235:443/?type=xhttp&encryption=none&flow=&host=ovd13.global.ssl.fastly.net&path=%2F&mode=auto&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-1000%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22500000%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2260%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%2216%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%220%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22600-900%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%2C%0A%20%20%22scMaxConcurrentPosts%22%3A%20100%0A%7D&vless=tls&sni=accounts.fastly.com&alpn=h3&fp=chrome#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
     "vless://67cd3349-f789-4cbb-8b91-4b6b1654ce7c@151.101.36.2:443/?type=xhttp&encryption=none&flow=&host=oh4.global.ssl.fastly.net&path=%2F&mode=auto&extra=%7B%0A%20%20%22xPaddingBytes%22%3A%20%22100-1000%22%2C%0A%20%20%22scMaxEachPostBytes%22%3A%20%22500000%22%2C%0A%20%20%22scMinPostsIntervalMs%22%3A%20%2260%22%2C%0A%20%20%22noGRPCHeader%22%3A%20true%2C%0A%20%20%22xmux%22%3A%20%7B%0A%20%20%20%20%22maxConnections%22%3A%20%2216%22%2C%0A%20%20%20%20%22cMaxReuseTimes%22%3A%20%220%22%2C%0A%20%20%20%20%22hMaxRequestTimes%22%3A%20%22600-900%22%2C%0A%20%20%20%20%22hMaxReusableSecs%22%3A%20%221800-3000%22%2C%0A%20%20%20%20%22hKeepAlivePeriod%22%3A%200%0A%20%20%7D%2C%0A%20%20%22scMaxConcurrentPosts%22%3A%20100%0A%7D&security=tls&sni=accounts.fastly.com&alpn=h3&fp=chrome#%F0%9F%87%AB%F0%9F%87%B7%20%D0%A4%D1%80%D0%B0%D0%BD%D1%86%D0%B8%D1%8F%20YT%20%F0%9F%93%BA%20AI%F0%9F%A4%96",
-    "vless://056405e8-de9f-4d0d-8145-956f13cc34da@201.58.139.66:443/?type=raw&encryption=none&flow=&sni=57aac2t.pl7.h1clayd.click&fp=firefox&security=reality&pbk=LY0H47MWx87_L_JBzxFAuTzKZB53U7MrZQK8-dNnMxM&sid=6c5c7900406a1ae7#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0",
-    "vless://2958cf6c-018e-491a-943b-46b4cd38b8ee@200.102.182.14:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=0bdc63fce86bcd6b.cdn.cachefleet.com&fp=firefox&security=reality&pbk=JCBK4EmhNR_vDpGXcrPRpjd0eYQhIqmasaxFw28Lzy4&sid=#%F0%9F%87%AB%F0%9F%87%AE%20%D0%A4%D0%B8%D0%BD%D0%BB%D1%8F%D0%BD%D0%B4%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
-    #пропуск (не удалять!) . - , получается хуйня такая
+    "vless://26cfcdeb-3bdc-4b55-9a7f-a5f8c38aafd8@201.8.64.229:443/?type=xhttp&encryption=none&flow=&path=%2Feb278d1e559e&mode=auto&sni=5b1b23x.pl5.h1clayd.click&fp=firefox&security=reality&pbk=aC3_cPgcJMJUtJkRodl6Al7yDhWa5Gbzyka8xWhbuWw&sid=bc67acebb01173a7#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0%20YouTube%20%F0%9F%93%BA",
+    "vless://056405e8-de9f-4d0d-8145-956f13cc34da@201.58.139.66:443/?type=tcp&encryption=none&flow=&sni=57aac2t.pl7.h1clayd.click&fp=firefox&security=reality&pbk=LY0H47MWx87_L_JBzxFAuTzKZB53U7MrZQK8-dNnMxM&sid=6c5c7900406a1ae7#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0",
+    "ss://eGNoYWNoYTIwLWlldGYtcG9seTEzMDU6ckcxdWg1TXkyczhKeXR0NG91U3Y2OGxqb1EraU5wSFQ5bXkvblJndFBBbz0@178.239.150.72:12947#🇳🇬 Нигерия",
+    #пропуск (не неалять!) . - , получается хуйня такая
 ]
 
 
@@ -108,9 +110,9 @@ WINTER_SLOW = "🧊"         # медленный
 HWID_SPOOF = True
 HWID_SEED = os.environ.get("HWID_SEED", "PizMod")
 HWID_FIXED = os.environ.get("SUB_HWID", "")   # если задан — используется как есть
-HWID_OS = "Android"
-HWID_OS_VER = "14"
-HWID_MODEL = "Pixel 8"
+HWID_OS = "PizdukVPN"
+HWID_OS_VER = "100"
+HWID_MODEL = "Pizduk 007"
 
 # --- Gemini: если через конфиг открывается Gemini — в конец названия добавляется 🤖 ---
 GEMINI_CHECK = True
@@ -221,7 +223,7 @@ MAX_PER_SUBNET = 6          # максимум серверов из одной 
                             # «фермы» из одной подсети разом падают/блокируются
 
 # --- Проверка «из России» ---
-RU_CHECK = True
+RU_CHECK = False
 CHECK_HOST_API = "https://check-host.net"
 RU_NODES_MAX = 4            # сколько российских узлов использовать
 RU_MIN_OK = 2               # сколько узлов должны достучаться (если ответивших меньше — все они)

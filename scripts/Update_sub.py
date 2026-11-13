@@ -48,6 +48,7 @@ SOURCES = [
     "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGaHlqIHCzpm8J09GWd0zeNMb%2BUDgv4dboD2VwU438QTP4MnqUeC52Cr1%2BwMypBkx2AeCuIdXZCocuSDn6up0bvCVvvd5lEzyRfjFZUCiUuH5",
     "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGaHlqIHCzpm8J09GWd0zeNMb%2BUDgv4dboD2VwU438QTP4MnqUeC52Cr1%2BwMypBkx2PeUWfpWpdOUvOeNWrBgAX98qiT06gURdNejXhujIa0P",
     "https://clck.ru/3Wt8KN#K",
+    "https://123466.ru:6767/VpnSab/SabVpn",
 ]
 
 
@@ -87,7 +88,7 @@ PINNED_CONFIGS = [
 # НАСТРОЙКИ
 # ============================================================
 
-TARGET_COUNT = 60          # сколько конфигов взять в итоге (не считая закреплённых)
+TARGET_COUNT = 70          # сколько конфигов взять в итоге (не считая закреплённых)
 EARLY_STOP_MULT = 4        # остановить проверку, когда найдено TARGET_COUNT * N рабочих
                            # (запас нужен: часть отсеется проверкой «из РФ»). 0 = проверять все (было 5)
 

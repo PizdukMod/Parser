@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import sys
+import time
 import uuid
 from urllib.parse import parse_qs, unquote
 
@@ -26,10 +27,99 @@ HEADER = '#profile-title: PizdukVPN Автовыбор🤍\n#profile-update-inte
 # Токен: в workflow env: GH_TOKEN: ${{ secrets.PIZDUK_PAT }}
 GH_TOKEN = os.environ.get("GH_TOKEN", "").strip()
 
+# ---------------------------------------------------------------------------
+# Маршрутизация
+# ---------------------------------------------------------------------------
+
+# Российские сайты и сервисы - напрямую, мимо VPN.
+RU_DIRECT_DOMAINS = [
+    "geosite:category-ru",
+    "geosite:category-gov-ru",
+    "geosite:yandex",
+    "geosite:vk",
+    "geosite:mailru",
+    "regexp:.*\\.ru$",
+    "regexp:.*\\.su$",
+    "regexp:.*\\.xn--p1ai$",   # .рф
+    "regexp:.*\\.xn--p1acf$",  # .рус
+    "domain:sberbank.com",
+    "domain:tinkoff.ru",
+    "domain:gosuslugi.ru",
+    "domain:2gis.com",
+    "domain:wildberries.ru",
+    "domain:ozon.ru",
+]
+
+# Реклама (вкл. рекламные домены Google/YouTube) - в blackhole.
+AD_BLOCK_DOMAINS = [
+    "geosite:category-ads-all",
+    # рекламные домены Google / YouTube
+    "domain:doubleclick.net",
+    "domain:googleadservices.com",
+    "domain:googlesyndication.com",
+    "domain:googletagservices.com",
+    "domain:googletagmanager.com",
+    "domain:google-analytics.com",
+    "domain:adservice.google.com",
+    "domain:pagead2.googlesyndication.com",
+    "domain:googleads.g.doubleclick.net",
+    "domain:static.doubleclick.net",
+    "domain:ad.youtube.com",
+    "domain:ads.youtube.com",
+    "domain:youtube.cleverads.vn",
+    "domain:imasdk.googleapis.com",
+    "domain:admob.com",
+    "domain:app-measurement.com",
+    # популярные рекламные сети
+    "domain:adnxs.com",
+    "domain:adsrvr.org",
+    "domain:criteo.com",
+    "domain:taboola.com",
+    "domain:outbrain.com",
+    "domain:moatads.com",
+    "domain:scorecardresearch.com",
+    "domain:unityads.unity3d.com",
+    "domain:applovin.com",
+    "domain:mopub.com",
+    "domain:inmobi.com",
+    "domain:adcolony.com",
+    "domain:vungle.com",
+    "domain:ironsrc.com",
+    "domain:supersonicads.com",
+    "domain:chartboost.com",
+    "domain:facebook.net",
+    "domain:an.facebook.com",
+    # российская реклама
+    "domain:an.yandex.ru",
+    "domain:awaps.yandex.net",
+    "domain:mc.yandex.ru",
+    "domain:adfox.yandex.ru",
+    "domain:adfox.ru",
+    "domain:yabs.yandex.ru",
+    "domain:ad.mail.ru",
+    "domain:top-fwz1.mail.ru",
+    "domain:mytarget.my.com",
+    "domain:target.my.com",
+    "domain:ads.vk.com",
+    "domain:ad.adriver.ru",
+    "domain:begun.ru",
+]
+
 
 def fetch_subscription():
-    r = requests.get(SUB_URL, timeout=20)
-    r.raise_for_status()
+    last_err = None
+    for attempt in range(3):
+        try:
+            r = requests.get(SUB_URL, timeout=20)
+            r.raise_for_status()
+            break
+        except requests.RequestException as e:
+            last_err = e
+            print(f"fetch attempt {attempt + 1} failed: {e}", file=sys.stderr)
+            time.sleep(3)
+    else:
+        raise last_err
+
     raw = r.text.strip()
 
     try:
@@ -156,7 +246,24 @@ def build_config(outbounds):
     return {
         "remarks": REMARKS,
         "log": {"loglevel": "warning"},
-        "dns": {"servers": ["1.1.1.1", "8.8.8.8"]},
+        "dns": {
+            "servers": [
+                # Российские домены резолвим Яндекс DNS (идёт напрямую по geoip:ru)
+                {
+                    "address": "77.88.8.8",
+                    "domains": [
+                        "geosite:category-ru",
+                        "regexp:.*\\.ru$",
+                        "regexp:.*\\.su$",
+                        "regexp:.*\\.xn--p1ai$",
+                    ],
+                    "skipFallback": True,
+                },
+                "1.1.1.1",
+                "8.8.8.8",
+            ],
+            "queryStrategy": "UseIP",
+        },
         "observatory": {
             "subjectSelector": tags,
             "probeUrl": PROBE_URL,
@@ -172,7 +279,7 @@ def build_config(outbounds):
                 "settings": {"auth": "noauth", "udp": True},
                 "sniffing": {
                     "enabled": True,
-                    "destOverride": ["http", "tls"],
+                    "destOverride": ["http", "tls", "quic"],
                 },
             },
             {
@@ -181,11 +288,19 @@ def build_config(outbounds):
                 "listen": "127.0.0.1",
                 "protocol": "http",
                 "settings": {},
+                "sniffing": {
+                    "enabled": True,
+                    "destOverride": ["http", "tls", "quic"],
+                },
             },
         ],
         "outbounds": outbounds + [
             {"tag": "direct", "protocol": "freedom", "settings": {}},
-            {"tag": "block", "protocol": "blackhole", "settings": {}},
+            {
+                "tag": "block",
+                "protocol": "blackhole",
+                "settings": {"response": {"type": "http"}},
+            },
         ],
         "routing": {
             "domainStrategy": "IPIfNonMatch",
@@ -198,11 +313,36 @@ def build_config(outbounds):
                 }
             ],
             "rules": [
+                # 1. Локальные адреса - напрямую
                 {
                     "type": "field",
                     "ip": ["geoip:private"],
                     "outboundTag": "direct",
                 },
+                {
+                    "type": "field",
+                    "domain": ["geosite:private"],
+                    "outboundTag": "direct",
+                },
+                # 2. Реклама - блок (раньше всего остального)
+                {
+                    "type": "field",
+                    "domain": AD_BLOCK_DOMAINS,
+                    "outboundTag": "block",
+                },
+                # 3. Российские сайты - напрямую
+                {
+                    "type": "field",
+                    "domain": RU_DIRECT_DOMAINS,
+                    "outboundTag": "direct",
+                },
+                # 4. Российские IP - напрямую
+                {
+                    "type": "field",
+                    "ip": ["geoip:ru"],
+                    "outboundTag": "direct",
+                },
+                # 5. Всё остальное - через автовыбор лучшего сервера
                 {
                     "type": "field",
                     "network": "tcp,udp",

@@ -40,6 +40,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
     "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
+    "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
     "https://github.com/terik21/HiddifySubs-VlessKeys/raw/refs/heads/main/main",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLWL_MIX.txt",
     "https://github.com/theakres/VPN/raw/main/all", #akres

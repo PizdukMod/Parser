@@ -31,14 +31,15 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
-    "https://mifa.world/lancer", #mifa
+    "https://mifa.world/ponder", #mifa
+    "https://pozor.bond/sub/aeryxvpn",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
-    "https://gitverse.ru/api/repos/europe_vpn/vpn_sub/raw/branch/master/config.txt",
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
     "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
+    "https://github.com/terik21/HiddifySubs-VlessKeys/raw/refs/heads/main/main",
     "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLWL_MIX.txt",
     "https://github.com/theakres/VPN/raw/main/all", #akres
 ]

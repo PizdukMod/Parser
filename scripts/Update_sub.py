@@ -42,7 +42,6 @@ SOURCES = [
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
     "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
     "https://github.com/terik21/HiddifySubs-VlessKeys/raw/refs/heads/main/main",
-    "https://hub.mos.ru/akelladejavu/bunker/-/raw/main/BLWL_MIX.txt",
     "https://github.com/theakres/VPN/raw/main/all", #akres
 ]
 
@@ -68,9 +67,7 @@ PINNED_CONFIGS = [
     "vless://5c09e56b-f97f-4360-8f01-eb4d39202095@185.155.55.11:8443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ee-nf.reddotcorp.org&fp=firefox&security=reality&pbk=ApMfbcEyBOve6DxXoBNVu3bCCzQ7XCEYB4ummsDtTBE&sid=661766b2bcef440a#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
     "vless://2208b003-78b1-453c-b5ca-ce847ff0efd6@b1eb8et.de14.h1clayd.click:443/?type=tcp&encryption=none&flow=&sni=b1eb8et.de14.h1clayd.click&fp=firefox&security=reality&pbk=l3fn2CzC6-oVy6Mf5jafL-kVs8aX_jUfMUjhupBkPz0&sid=1a5d9b3be394fdc7#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Youtube%20%F0%9F%93%BA",
     "vless://c53ea5e9-ed8b-4990-805d-7f1d6451426c@92.118.206.217:8443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=dur.sky-vault.top&fp=firefox&security=reality&pbk=fSVfR9NB-6J6smrZlavi0GWd8JfDh0aXuEkKbtuFzUI&sid=3cbc3d737fb9c4af#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@cors.jarbook.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=cors.jarbook.net&fp=firefox&security=reality&pbk=vgTPwRwzomcTax4QzCIyGdKr7U5-paaH9SL0XfshiVM&sid=0c17df97#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20Gemini%F0%9F%A4%96",
     "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@get.jarbook.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=get.jarbook.net&fp=firefox&security=reality&pbk=BIy6H-jndn24Ukyw83ML8LDB1HL8WLJmfCADEy8lzVs&sid=c6f97313#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20Youtube%20%F0%9F%93%BA",
-    "vless://2208b003-78b1-453c-b5ca-ce847ff0efd6@45b545t.fi7.h1clayd.click:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=45b545t.fi7.h1clayd.click&fp=firefox&security=reality&pbk=jRHg94HymqCnI9LLFHMBxvi9URv_AOMgJxhLkOVuCl8&sid=0bfd7d104dcc9cae#%F0%9F%87%AB%F0%9F%87%AE%20%D0%A4%D0%B8%D0%BD%D0%BB%D1%8F%D0%BD%D0%B4%D0%B8%D1%8F%20%E2%9A%A1%20YT%20%F0%9F%93%BA%20AI%20%F0%9F%A4%96",
     # не трогай!
 ]
 

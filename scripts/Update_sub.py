@@ -33,6 +33,7 @@ SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
     "https://mifa.world/ponder", #mifa
     "https://pozor.bond/sub/aeryxvpn",
+    "https://pozor.bond/sub/bynedw6v01p5",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
     "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",

@@ -36,12 +36,11 @@ SOURCES = [
     "https://pozor.bond/sub/bynedw6v01p5",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
-    "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt",
+    "https://netbridger.ru/api/v1/subscription/u/66dc1b6d-f3ee-4167-a4d5-1b2d67fd2c56?vantage=ru",
+    "https://raw.githubusercontent.com/MK-l4/Q-RVVPN/refs/heads/main/Q%E2%80%A2RVVPN",
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
-    "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
     "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
-    "https://github.com/terik21/HiddifySubs-VlessKeys/raw/refs/heads/main/main",
     "https://github.com/theakres/VPN/raw/main/all", #akres
 ]
 
@@ -61,12 +60,7 @@ PINNED_CONFIGS = [
     "vmess://eyJhZGQiOiJjZi4wc20uY29tIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3M/ZWRcdTAwM2QyMDQ4IiwicG9ydCI6IjgwIiwicHMiOiLwn4e68J+HuCDinKYg0KHQqNCQIOKcpiDwn4yAIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
     "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@price.goonars.com:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=price.goonars.com&fp=firefox&security=reality&pbk=UAry1N68zKkbO0MpIqAXmxfxg1Y9rvkiBjexZErRJwY&sid=6a30cf54#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20YT%20%F0%9F%93%BA%20AI%F0%9F%A4%96",
     "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@main.jarbook.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=main.jarbook.net&fp=firefox&security=reality&pbk=gJoMHh97teLxW92Z_3DI8qdSulqBlb9sW6mthYPEEBk&sid=d889ac17#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20YT%F0%9F%93%BA%20AI%F0%9F%A4%96",
-    "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@chmstnd21.jarvesitw.ru:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=chmstnd21.jarvesitw.ru&fp=firefox&security=reality&pbk=2LiT1OqXbnWbNAop15NSe0OL3dK2i8EIkiY4EB_3PV8&sid=2e9cd36a#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20Youtube%20%F0%9F%93%BA",
-    "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@user.betust.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=user.betust.net&fp=firefox&security=reality&pbk=TXP6hQVE4PdXDEdDk2k_5_f92jcOKZ15Fuw14jCJTQg&sid=c1064ddb#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://33f3c1ee-f026-4f3f-bed3-8c7c01de8a96@50.7.169.243:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=user.betust.net&fp=firefox&security=reality&pbk=TXP6hQVE4PdXDEdDk2k_5_f92jcOKZ15Fuw14jCJTQg&sid=c1064ddb#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
-    "vless://5c09e56b-f97f-4360-8f01-eb4d39202095@185.155.55.11:8443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ee-nf.reddotcorp.org&fp=firefox&security=reality&pbk=ApMfbcEyBOve6DxXoBNVu3bCCzQ7XCEYB4ummsDtTBE&sid=661766b2bcef440a#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
     "vless://2208b003-78b1-453c-b5ca-ce847ff0efd6@b1eb8et.de14.h1clayd.click:443/?type=tcp&encryption=none&flow=&sni=b1eb8et.de14.h1clayd.click&fp=firefox&security=reality&pbk=l3fn2CzC6-oVy6Mf5jafL-kVs8aX_jUfMUjhupBkPz0&sid=1a5d9b3be394fdc7#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Youtube%20%F0%9F%93%BA",
-    "vless://c53ea5e9-ed8b-4990-805d-7f1d6451426c@92.118.206.217:8443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=dur.sky-vault.top&fp=firefox&security=reality&pbk=fSVfR9NB-6J6smrZlavi0GWd8JfDh0aXuEkKbtuFzUI&sid=3cbc3d737fb9c4af#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Gemini%20%F0%9F%A4%96",
     "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@get.jarbook.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=get.jarbook.net&fp=firefox&security=reality&pbk=BIy6H-jndn24Ukyw83ML8LDB1HL8WLJmfCADEy8lzVs&sid=c6f97313#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20Youtube%20%F0%9F%93%BA",
     # не трогай!
 ]

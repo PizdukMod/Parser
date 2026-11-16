@@ -31,7 +31,8 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
-    "https://mifa.world/ponder", #mifa
+    "https://mifa.world/wizard", #mifa
+    "https://mifa.world/wizard2",
     "https://pozor.bond/sub/aeryxvpn",
     "https://pozor.bond/sub/bynedw6v01p5",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
@@ -57,11 +58,17 @@ PINNED_CONFIGS = [
     "#profile-update-interval: 6",
     "vless://4054fdc2-ee80-4419-8a8e-d937df4719e2@qq.utiltools.site:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=qq.utiltools.site&fp=chrome&security=reality&pbk=drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI&sid=#%F0%9F%95%B8%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC%20%F0%9F%87%B7%F0%9F%87%BA%20%28telegram-only%29%F0%9F%8E%83",
     "vless://e75ad2eb-6c1f-45ce-8023-f5f10875df66@129.101.98.60:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ru7e2bab87cc39.eu-cdn539.com&fp=firefox&security=reality&pbk=lews1n_fypGexd_dMofEO4Vy1ULsFeVIFa90MMY3pm4&sid=3992cc7fb9fcbe58#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F",
+    "vless://ceab5251-eaa3-4a2f-bdd4-ce9df24d9edd@94.228.117.93:443/?type=xhttp&encryption=none&flow=&host=login.alfatrud.ru&path=%2Fapi%2Fstream%2F&mode=packet-up&security=tls&sni=login.alfatrud.ru&fp=chrome#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%20%F0%9F%8F%B3%EF%B8%8F",
     "vmess://eyJhZGQiOiJjZi4wc20uY29tIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3M/ZWRcdTAwM2QyMDQ4IiwicG9ydCI6IjgwIiwicHMiOiLwn4e68J+HuCDinKYg0KHQqNCQIOKcpiDwn4yAIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
-    "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@price.goonars.com:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=price.goonars.com&fp=firefox&security=reality&pbk=UAry1N68zKkbO0MpIqAXmxfxg1Y9rvkiBjexZErRJwY&sid=6a30cf54#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20YT%20%F0%9F%93%BA%20AI%F0%9F%A4%96",
+    "vless://df198807-16c0-4ad9-b6e5-db6e97f42b03@92.242.165.141:2083/?type=ws&encryption=none&flow=&path=%2Fvless-ws&security=tls&sni=onecloudstream.com&fp=chrome#%F0%9F%87%AC%F0%9F%87%A7%20%D0%91%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Youtube%20%F0%9F%93%BA",
+    "vless://8197b9b9-8945-460f-99c9-325ef8a8a7c3@5.253.86.3:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=nl3.gofizz.in&fp=firefox&security=reality&pbk=51ZCyVOxvcD_smARtd9mV-3Rh_WurOzMGRFxk9u2Kgo&sid=fa1754221e4c5f9e#%F0%9F%87%AC%F0%9F%87%A7%20%D0%91%D1%80%D0%B8%D1%82%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1",
     "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@main.jarbook.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=main.jarbook.net&fp=firefox&security=reality&pbk=gJoMHh97teLxW92Z_3DI8qdSulqBlb9sW6mthYPEEBk&sid=d889ac17#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20YT%F0%9F%93%BA%20AI%F0%9F%A4%96",
+    "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@app.streamru9.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&security=tls&sni=app.streamru9.net#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B%20%E2%9A%A1%20Gemini%F0%9F%A4%96",
     "vless://2208b003-78b1-453c-b5ca-ce847ff0efd6@b1eb8et.de14.h1clayd.click:443/?type=tcp&encryption=none&flow=&sni=b1eb8et.de14.h1clayd.click&fp=firefox&security=reality&pbk=l3fn2CzC6-oVy6Mf5jafL-kVs8aX_jUfMUjhupBkPz0&sid=1a5d9b3be394fdc7#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1%20Youtube%20%F0%9F%93%BA",
-    "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@get.jarbook.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=get.jarbook.net&fp=firefox&security=reality&pbk=BIy6H-jndn24Ukyw83ML8LDB1HL8WLJmfCADEy8lzVs&sid=c6f97313#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20Youtube%20%F0%9F%93%BA",
+    "vless://a30903dc-1bf0-4be5-8b1b-603a3a56211c@88.216.60.73:443/?type=tcp&encryption=none&flow=&sni=ns-api-gw.galioncc.com&fp=firefox&security=reality&pbk=drl7nndYdfzZY1aQ0eUAWmNV0nsHig2uDnu9siy9biQ&sid=a7c92e4b10d6f835#%F0%9F%87%B8%F0%9F%87%AA%20%D0%A8%D0%B2%D0%B5%D1%86%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
+    "vless://5c09e56b-f97f-4360-8f01-eb4d39202095@ee.puflino.com:8443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ee-nf.reddotcorp.org&fp=firefox&security=reality&pbk=ApMfbcEyBOve6DxXoBNVu3bCCzQ7XCEYB4ummsDtTBE&sid=661766b2bcef440a#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F%20Gemini%20%F0%9F%A4%96",
+    "vless://a30903dc-1bf0-4be5-8b1b-603a3a56211c@80.47.10.106:443/?type=tcp&encryption=none&flow=&sni=pl8.galioncc.com&fp=firefox&security=reality&pbk=drl7nndYdfzZY1aQ0eUAWmNV0nsHig2uDnu9siy9biQ&sid=a7c92e4b10d6f835#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0%20Gemini%20%F0%9F%A4%96",
+    "hy2://030e421e-9317-4cb8-8fbe-a07a565ad3db@4f070970.con.metricdraft.tech:443/?hop_interval=10&sni=4f070970.con.metricdraft.tech#🇱🇻 Латвия Hy2 5MB",
     # не трогай!
 ]
 

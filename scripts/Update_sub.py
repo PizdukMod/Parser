@@ -31,16 +31,16 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
-    "https://mifa.world/wizard", #mifa
-    "https://mifa.world/wizard2",
     "https://pozor.bond/sub/aeryxvpn",
     "https://pozor.bond/sub/bynedw6v01p5",
+    "https://goo.su/Xfwbx",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
     "https://netbridger.ru/api/v1/subscription/u/66dc1b6d-f3ee-4167-a4d5-1b2d67fd2c56?vantage=ru",
     "https://raw.githubusercontent.com/MK-l4/Q-RVVPN/refs/heads/main/Q%E2%80%A2RVVPN",
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
+    "https://raw.githubusercontent.com/LSO-LinSpisokObhod/LSO-LinSpisokObhod.github.io/refs/heads/main/mysub.txt",
     "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
     "https://github.com/theakres/VPN/raw/main/all", #akres
 ]

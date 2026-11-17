@@ -69,7 +69,6 @@ SOURCES_CORE = """
 🥛 https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven
 🧣 https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt
 🧤 https://bit.ly/LimeVPN
-🏂 https://clck.ly/3WnEfT
 🛷 https://github.com/theakres/VPN/raw/main/all            # akres
 """
 

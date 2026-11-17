@@ -32,16 +32,15 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
     "https://pozor.bond/sub/aeryxvpn",
-    "https://pozor.bond/sub/bynedw6v01p5",
     "https://goo.su/Xfwbx",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
-    "https://netbridger.ru/api/v1/subscription/u/66dc1b6d-f3ee-4167-a4d5-1b2d67fd2c56?vantage=ru",
     "https://raw.githubusercontent.com/MK-l4/Q-RVVPN/refs/heads/main/Q%E2%80%A2RVVPN",
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
-    "https://raw.githubusercontent.com/LSO-LinSpisokObhod/LSO-LinSpisokObhod.github.io/refs/heads/main/mysub.txt",
     "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
+    "https://bit.ly/LimeVPN",
+    "https://clck.ly/3WnEfT",
     "https://github.com/theakres/VPN/raw/main/all", #akres
 ]
 
@@ -57,7 +56,17 @@ PINNED_CONFIGS = [
     "#support-url: t.me/Harachok",
     "#profile-update-interval: 6",
     "vless://e75ad2eb-6c1f-45ce-8023-f5f10875df66@129.101.98.60:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ru7e2bab87cc39.eu-cdn539.com&fp=firefox&security=reality&pbk=lews1n_fypGexd_dMofEO4Vy1ULsFeVIFa90MMY3pm4&sid=3992cc7fb9fcbe58#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F",
+    "vless://e75ad2eb-6c1f-45ce-8023-f5f10875df66@129.101.98.60:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=ru7e2bab87cc39.eu-cdn539.com&fp=firefox&security=reality&pbk=lews1n_fypGexd_dMofEO4Vy1ULsFeVIFa90MMY3pm4&sid=3992cc7fb9fcbe58#%F0%9F%87%B7%F0%9F%87%BA%20%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F%20%E2%9A%A1%20Youtube%20%F0%9F%93%BA",
     "vmess://eyJhZGQiOiJjZi4wc20uY29tIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3M/ZWRcdTAwM2QyMDQ4IiwicG9ydCI6IjgwIiwicHMiOiLwn4e68J+HuCDinKYg0KHQqNCQIOKcpiDwn4yAIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiIiLCJ2IjoiMiJ9",
+    "vless://fd90e601-a56c-42b8-aab7-aa02d26fcb04@app.streamru2.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&security=tls&sni=app.streamru2.net&fp=firefox#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20Youtube%20%F0%9F%93%BA",
+    "vless://a13f3a29-56fd-4540-b7f4-848861f63ed0@199.232.249.182:443/?type=xhttp&encryption=none&flow=&host=vv1.global.ssl.fastly.net&path=%2F&mode=auto&security=tls&sni=huesos.fastly.com#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20Youtube%20%F0%9F%93%BA",
+    "vless://07df3711-07a1-4649-9a61-3f16cb931d02@345739t.de19.h1clayd.click:443/?type=tcp&encryption=none&flow=&sni=345739t.de19.h1clayd.click&fp=chrome&security=reality&pbk=hFee7zTreqlv_wccK_8zxN5v23hj9u-DshByvGf-KAA&sid=23732d14a527990d#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20Youtube%20%F0%9F%93%BA",
+    "vless://fd90e601-a56c-42b8-aab7-aa02d26fcb04@app.streamru13.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&security=tls&sni=app.streamru13.net&fp=firefox#%F0%9F%87%B3%F0%9F%87%B1%20%D0%9D%D0%B8%D0%B4%D0%B5%D1%80%D0%BB%D0%B0%D0%BD%D0%B4%D1%8B",
+    "vless://a13f3a29-56fd-4540-b7f4-848861f63ed0@199.232.249.182:443/?type=xhttp&encryption=none&flow=&host=vv1.global.ssl.fastly.net&path=%2F&mode=auto&security=tls&sni=huesos.fastly.com#%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20",
+    "vless://003ec416-45f0-462a-8030-016fe0a71703@199.232.249.182:443/?type=xhttp&encryption=none&flow=&host=v2.global.ssl.fastly.net&path=%2F&mode=auto&security=tls&sni=huesos.fastly.com#%F0%9F%87%AB%F0%9F%87%B7%20%D0%A4%D1%80%D0%B0%D0%BD%D1%86%D0%B8%D1%8F%20Youtube%20%F0%9F%93%BA",
+    "vless://33b25ed8-2088-40a5-ba4f-cf04b6d3fc06@free-de1.endurancepro.space:8443/?type=xhttp&encryption=none&flow=&path=%2Fapi%2Fv1%2Fsync&mode=packet-up&sni=free-de1.endurancepro.space&fp=firefox&security=reality&pbk=vJgQ5ZSblvzGdJ1s693hIEIUGTgMJaci4_2UGR7BFVA&sid=789df6fbcf3518ea#%F0%9F%87%AA%F0%9F%87%AA%20%D0%AD%D1%81%D1%82%D0%BE%D0%BD%D0%B8%D1%8F",
+    "vless://fd90e601-a56c-42b8-aab7-aa02d26fcb04@app.streamru17.net:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&security=tls&sni=app.streamru17.net&fp=firefox#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0%20Youtube%20%F0%9F%93%BA",
+    "vless://49b42507-8781-46a4-8fcc-0b404690c85d@87.242.95.170:443/?type=ws&encryption=none&flow=&host=radio-prichal.online&path=%2Fcheckout%2Fstep%2Fallo3fSMLuBu&security=tls&sni=radio-prichal.online&fp=chrome#%F0%9F%87%B5%F0%9F%87%B1%20%D0%9F%D0%BE%D0%BB%D1%8C%D1%88%D0%B0%20YT%20%F0%9F%93%BA%20AI%F0%9F%A4%96%20LTE%F0%9F%93%B6",
     # не трогай!
 ]
 

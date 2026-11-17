@@ -39,15 +39,19 @@ SOURCES = [
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
     "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/White_List.txt",
     # Слитые
+    "https://mifa.world/sinta",
     "https://notfreesubnewcode.newcodevless.workers.dev/d482ba8b1903173fa87095d0ef9d86a47b9c462e672981f94cb16c92b57b2d02",
     # Из чс
-    "https://mifa.world/lancer", #mifa
+    "https://pozor.bond/sub/aeryxvpn",
+    "https://goo.su/Xfwbx",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
-    "https://gitverse.ru/api/repos/europe_vpn/vpn_sub/raw/branch/master/config.txt",
+    "https://raw.githubusercontent.com/MK-l4/Q-RVVPN/refs/heads/main/Q%E2%80%A2RVVPN",
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
-    "https://raw.githubusercontent.com/Buffetbarko/Universal-Proxy-Config-Parser-/main/blacklist_vpn.txt",
-    "https://raw.githubusercontent.com/Fakeonomics/libre-configs/main/special/anchor",
+    "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
+    "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
+    "https://bit.ly/LimeVPN",
+    "https://clck.ly/3WnEfT",
     "https://github.com/theakres/VPN/raw/main/all", #akres
 ]
 

@@ -45,6 +45,63 @@ SOURCES = [
 
 
 # ============================================================
+# МЕТКИ ИСТОЧНИКОВ — эмодзи в КОНЦЕ названия конфига показывает, откуда он взят
+# (чтобы сразу видеть и выкидывать плохие источники).
+# Новый источник: просто добавь URL в SOURCES — эмодзи назначится сам (зимний набор,
+# по хэшу URL, поэтому не «прыгает» при добавлении других источников).
+# Хочешь свой эмодзи — одна строка в SOURCE_MARKS:  "https://адрес": "🎄",
+# Если конфиг есть в нескольких источниках — ставится метка первого (MAX_SOURCE_MARKS = сколько).
+# ============================================================
+
+SOURCE_MARK_ENABLED = True
+MAX_SOURCE_MARKS = 1
+SOURCE_MARKS = {
+    # "https://example.com/sub": "🎄",
+}
+SOURCE_EMOJI_POOL = (
+    "🎄", "🎅", "🦌", "🎁", "⛷️", "🏂", "🧣", "🧤", "🔔", "🕯️", "🍪", "🥛", "🦉", "🐧",
+    "🧸", "🪵", "🍊", "⭐", "🌨️", "🏔️", "🛷", "🎿", "🥶", "🍷", "🧦", "🌲",
+)
+
+
+def build_source_marks():
+    marks = dict(SOURCE_MARKS)
+    used = set(marks.values())
+    for url in SOURCES:
+        if url in marks:
+            continue
+        start = int(hashlib.md5(url.encode("utf-8")).hexdigest(), 16) % len(SOURCE_EMOJI_POOL)
+        emoji = "🔹"
+        for k in range(len(SOURCE_EMOJI_POOL)):
+            cand = SOURCE_EMOJI_POOL[(start + k) % len(SOURCE_EMOJI_POOL)]
+            if cand not in used:
+                emoji = cand
+                break
+        used.add(emoji)
+        marks[url] = emoji
+    return marks
+
+
+SOURCE_MARK = build_source_marks()
+
+
+def mark_of(url):
+    return SOURCE_MARK.get(url, "")
+
+
+def source_tag(config):
+    """Эмодзи источника(ов) конфига для конца названия."""
+    out = []
+    for u in _src_of.get(dedupe_key(config)) or []:
+        m = mark_of(u)
+        if m and m not in out:
+            out.append(m)
+        if len(out) >= max(1, MAX_SOURCE_MARKS):
+            break
+    return "".join(out)
+
+
+# ============================================================
 # ЗАКРЕПЛЁННЫЕ КОНФИГИ — добавляются в начало БЕЗ проверки
 # ============================================================
 
@@ -97,7 +154,7 @@ EARLY_STOP_MULT = 4        # остановить проверку, когда �
 MAX_PING_MS = 3000         # отсечка совсем медленных (итоговый балл: пинг + вклад скорости)
 GOOD_PING_MS = 300         # «быстрый» сервер (❄️ в названии); ≤3× — ⛄, дальше — 🧊
 
-MAX_TCP_PING_MS = 1700     # TCP-пинг выше этого (или нет ответа) — в ядро не идёт
+MAX_TCP_PING_MS = 2500     # TCP-пинг выше этого (или нет ответа) — в ядро не идёт
 TCP_CONCURRENCY = 300      # одновременных TCP-проверок (было 200)
 
 # --- Зима ---
@@ -141,7 +198,7 @@ FETCH_HEADERS_LIST = [     # User-Agent меняется от попытки к 
 
 CONCURRENCY = 40           # одновременных xray/sing-box процессов (было 15; ~30-50 МБ RAM на процесс)
 XRAY_STARTUP_TIMEOUT = 6.0 # сек: максимум ждём, пока ядро откроет локальный порт
-XRAY_TEST_TIMEOUT = 10.0   # сек на ОДИН тестовый запрос через прокси
+XRAY_TEST_TIMEOUT = 12.0   # сек на ОДИН тестовый запрос через прокси
 XRAY_BINARY = "xray"       # должен быть в PATH
 
 # --- Hy2 (проверяется через sing-box, т.к. это UDP/QUIC) ---
@@ -161,7 +218,7 @@ TEST_URLS = [
 # не работает (неверный ключ, мёртвый reality и т.п.), за QUICK_TIMEOUT секунд, а не за минуту.
 QUICK_CHECK = True
 QUICK_URLS = TEST_URLS[:2]  # какие URL дёргаем
-QUICK_TIMEOUT = 6.0         # сек на запрос
+QUICK_TIMEOUT = 8.0         # сек на запрос
 QUICK_MIN_OK = 1            # сколько из QUICK_URLS должны ответить
 
 # Проверка: тестовые URL должны отвечать, но одиночный сбой прощается.
@@ -182,7 +239,7 @@ DOWNLOAD_URLS = [           # достаточно, чтобы прошёл ХО
 DOWNLOAD_BYTES = 1_000_000
 DOWNLOAD_TIMEOUT = 15.0
 REQUIRE_DOWNLOAD = True     # False — если раннер не достаёт до DOWNLOAD_URLS
-DOWNLOAD_MAX_MS = 10000     # 1 МБ дольше этого — слишком медленно
+DOWNLOAD_MAX_MS = 12000     # 1 МБ дольше этого — слишком медленно
 SPEED_WEIGHT = 0.1          # вклад времени загрузки/отдачи в итоговый балл (ниже = лучше)
 
 # --- Отдача (upload): ловит «полусломанные» туннели, где вниз идёт, а вверх нет ---
@@ -201,7 +258,7 @@ BLOCKED_URLS = [
 MIN_BLOCKED_OK = 1          # сколько из BLOCKED_URLS должны открыться (0 = не проверять)
 
 # --- Стабильность ---
-MAX_JITTER = 4.0            # макс/мин пинг в тёплых запросах (+100 мс запаса)
+MAX_JITTER = 5.0            # макс/мин пинг в тёплых запросах (+100 мс запаса)
 REQUIRE_STABLE_EXIT_IP = True   # выходной IP не должен «плавать» между запросами
 
 # --- Cloudflare trace: выходной IP + страна ПРЯМО через прокси (без лимитов гео-сервисов) ---
@@ -225,8 +282,25 @@ DEDUPE_BY_SETTINGS = True   # дубли: те же host:port и настрой�
 MAX_PER_SUBNET = 6          # максимум серверов из одной подсети /24 (0 = без лимита):
                             # «фермы» из одной подсети разом падают/блокируются
 
+# --- Проверка «для РФ», когда раннер в США ---
+# Жёстко (иначе отсев): туннель отдаёт данные (с одним повтором), соединение не рвётся после
+# паузы, выходной IP не совпал с нашим. Всё остальное — МЯГКО: проваленная проверка даёт штраф
+# к баллу, а отсев только если провалено больше SOFT_FAIL_LIMIT. False — всё жёстко, как раньше.
+SOFT_CHECK = True
+SOFT_FAIL_LIMIT = 2
+SOFT_PENALTY_MS = 700
+QUICK_RETRY = True          # быстрый шлюз: одна повторная попытка (маршрут США→мир нестабилен)
+TCP_RETRIES = 1             # повтор TCP-проверки (флапы маршрута США→сервер)
+
+# «Только для РФ»: серверы, не ответившие из США по TCP (белые списки, вход открыт лишь для РФ),
+# проверяются с российских узлов check-host.net. Прошедшие идут в подписку после проверенных.
+RU_RESCUE = True
+RU_RESCUE_MAX = 150          # сколько таких конфигов отправить в check-host за запуск
+RU_RESCUE_QUOTA = 20        # сколько мест в подписке гарантировано им (если проверенных мало — больше)
+RU_RESCUE_BASE_MS = 1500    # базовый балл (они не проверены ядром, идут после проверенных)
+
 # --- Проверка «из России» ---
-RU_CHECK = False
+RU_CHECK = True            # отсев проверенных, недоступных с российских узлов (при сбое API — не отсеиваем)
 CHECK_HOST_API = "https://check-host.net"
 RU_NODES_MAX = 4            # сколько российских узлов использовать
 RU_MIN_OK = 2               # сколько узлов должны достучаться (если ответивших меньше — все они)
@@ -285,6 +359,10 @@ _exit_ip = {}               # config -> выходной IP
 _trace_loc = {}             # config -> страна выхода по Cloudflare trace
 _gemini = {}                # config -> True, если Gemini открылся хотя бы в одном прогоне
 _fail = Counter()           # причина отказа -> сколько конфигов
+_soft = Counter()           # мягкие замечания у прошедших проверку (не отсев)
+_src_of = defaultdict(list) # ключ конфига -> источники, где он встретился (для эмодзи-меток)
+_ru_ms = {}                 # host:port -> средний пинг с российских узлов (мс)
+_rescued = set()            # конфиги, недоступные из США, но доступные с российских узлов
 _T0 = time.monotonic()
 
 
@@ -1228,26 +1306,30 @@ def init_port_pool(n):
 # ============================================================
 
 async def tcp_ping(line):
-    """Возвращает время TCP-подключения в мс или None."""
+    """Время TCP-подключения в мс или None (с повтором: маршрут США→сервер иногда флапает)."""
     hp = get_host_port(line)
     if not hp:
         return None
     host, port = hp
-    start = time.monotonic()
-    try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port),
-            timeout=MAX_TCP_PING_MS / 1000,
-        )
-    except Exception:
-        return None
-    ms = (time.monotonic() - start) * 1000
-    try:
-        writer.close()
-        await writer.wait_closed()
-    except Exception:
-        pass
-    return ms
+    for attempt in range(1 + TCP_RETRIES):
+        start = time.monotonic()
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=MAX_TCP_PING_MS / 1000,
+            )
+        except Exception:
+            if attempt < TCP_RETRIES:
+                await asyncio.sleep(0.3)
+            continue
+        ms = (time.monotonic() - start) * 1000
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except Exception:
+            pass
+        return ms
+    return None
 
 
 async def tcp_filter(candidates):
@@ -1449,66 +1531,66 @@ async def _blocked_count(session):
 
 # ============================================================
 # РЕАЛЬНАЯ ПРОВЕРКА ЧЕРЕЗ ЯДРО (xray / sing-box) — возвращает балл (мс) или None
-# Одно запущенное ядро на весь конфиг, от дешёвых проверок к дорогим:
-#   1) быстрый шлюз: 2 запроса параллельно (мёртвые отсеиваются за QUICK_TIMEOUT);
-#      пауза и повтор по тому же соединению (keep-alive), HTTPS-сертификаты проверяются,
-#      ответ 204 должен быть пустым; джиттер считается сразу;
-#   2) выходной IP + Cloudflare trace (страна) + заблокированные сайты — ОДНОВРЕМЕННО;
-#      «плавающий» выходной IP отсеивается;
-#   3) параллельный залп на новых соединениях;
-#   4) скачивание ~1 МБ и отдача (upload) — обрывы и «полусломанные» туннели;
-#   5) выходной IP не изменился к концу + проверка Gemini (одновременно).
-# Балл = медиана пинга в тёплых запросах + вклад времени загрузки и отдачи.
-# Одинаково для vless / vmess / trojan / ss / hy2.
+# Раннер в США, а конфиги нужны в РФ, поэтому проверка МЯГКАЯ:
+#   ЖЁСТКО (иначе отсев): туннель отдаёт данные (быстрый шлюз, с одним повтором);
+#        соединение не рвётся после паузы; выходной IP не совпал с нашим; страна не исключена.
+#   МЯГКО (штраф SOFT_PENALTY_MS к баллу; отсев, если провалов больше SOFT_FAIL_LIMIT):
+#        keep-alive, джиттер, нет выходного IP / «плавает», заблокированные сайты,
+#        параллельный залп, загрузка, отдача.
+# Что закрыто для США (вход только для РФ) спасается отдельно — ru_rescue (check-host.net).
+# Балл = медиана пинга + вклад скорости + штрафы. Одинаково для vless / vmess / trojan / ss / hy2.
 # ============================================================
+
+async def _tunnel_gate(proxy):
+    """Жёсткий шаг. -> (холодные, тёплые, провалов тёплых) или None, если туннель не отдаёт данные."""
+    timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
+    attempts = 2 if QUICK_RETRY else 1
+    for attempt in range(attempts):
+        try:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                res = await asyncio.gather(
+                    *(_fetch_ok(session, u, timeout=QUICK_TIMEOUT) for u in QUICK_URLS),
+                    return_exceptions=True,
+                )
+                cold = [r for r in res if not isinstance(r, Exception)]
+                if len(cold) >= QUICK_MIN_OK:
+                    await asyncio.sleep(IDLE_PAUSE)          # рвёт ли сервер keep-alive
+                    warm, warm_fails = [], 0
+                    for _ in range(max(1, CHECK_ROUNDS)):
+                        for url in TEST_URLS:
+                            try:
+                                warm.append(await _fetch_ok(session, url))   # ssl-проверка ВКЛЮЧЕНА
+                            except Exception:
+                                warm_fails += 1
+                    return cold, warm, warm_fails
+        except Exception:
+            pass
+        if attempt + 1 < attempts:
+            await asyncio.sleep(0.7)
+    return None
+
 
 async def _probe(line, port):
     proxy = f"socks5://127.0.0.1:{port}"
     timeout = aiohttp.ClientTimeout(total=XRAY_TEST_TIMEOUT)
+    soft = []
 
-    latencies = []
-    fails = 0
-    try:
-        connector = aiohttp_socks.ProxyConnector.from_url(proxy)
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-            # холодный раунд = быстрый шлюз
-            res = await asyncio.gather(
-                *(_fetch_ok(session, u, timeout=QUICK_TIMEOUT) for u in QUICK_URLS),
-                return_exceptions=True,
-            )
-            ok = sum(not isinstance(r, Exception) for r in res)
-            if QUICK_CHECK and ok < QUICK_MIN_OK:
-                return _reject("быстрая проверка: прокси не отвечает")
-            fails += len(res) - ok
-            if fails > TEST_MAX_FAILS:
-                return _reject("тестовые URL / keep-alive")
+    def bad(reason):
+        """Мягкая проверка не пройдена. True — пора отсеивать."""
+        soft.append(reason)
+        _soft[reason] += 1
+        return (not SOFT_CHECK) or len(soft) > SOFT_FAIL_LIMIT
 
-            # дополнительные тёплые раунды (если CHECK_ROUNDS > 1)
-            for _ in range(1, CHECK_ROUNDS):
-                for url in TEST_URLS:
-                    try:
-                        latencies.append(await _fetch_ok(session, url))   # ssl-проверка ВКЛЮЧЕНА
-                    except Exception:
-                        fails += 1
-                        if fails > TEST_MAX_FAILS:
-                            return _reject("тестовые URL / keep-alive")
-
-            # пауза + повтор по тому же соединению (рвёт ли сервер keep-alive)
-            await asyncio.sleep(IDLE_PAUSE)
-            for url in TEST_URLS:
-                try:
-                    latencies.append(await _fetch_ok(session, url))
-                except Exception:
-                    fails += 1
-                    if fails > TEST_MAX_FAILS:
-                        return _reject("тестовые URL / keep-alive")
-    except Exception:
+    gate = await _tunnel_gate(proxy)
+    if gate is None:
+        return _reject("быстрая проверка: прокси не отвечает")
+    _cold, warm, warm_fails = gate
+    if not warm:
+        return _reject("соединение рвётся после паузы (keep-alive)")
+    if warm_fails > TEST_MAX_FAILS and bad("keep-alive: часть повторных запросов"):
         return _reject("тестовые URL / keep-alive")
-
-    # джиттер считаем сразу: это бесплатно, а «плохой» конфиг не доходит до дорогих проверок
-    if not latencies:
-        return _reject("нет замеров пинга")
-    if max(latencies) > MAX_JITTER * min(latencies) + 100:
+    if max(warm) > MAX_JITTER * min(warm) + 100 and bad("нестабильный пинг (джиттер)"):
         return _reject("нестабильный пинг (джиттер)")
 
     exit_ip = None
@@ -1522,9 +1604,12 @@ async def _probe(line, port):
         t_ip, t_loc = tr if tr else (None, "")
 
         exit_ip = echo_ip or t_ip
-        if REQUIRE_EXIT_IP and (not exit_ip or (_my_ip and exit_ip == _my_ip)):
+        if exit_ip and _my_ip and exit_ip == _my_ip:
+            return _reject("выходной IP совпал с моим (прокси не работает)")
+        if not exit_ip and REQUIRE_EXIT_IP and bad("нет выходного IP"):
             return _reject("нет выходного IP / совпал с моим")
-        if REQUIRE_STABLE_EXIT_IP and echo_ip and t_ip and _same_family_diff(echo_ip, t_ip):
+        if REQUIRE_STABLE_EXIT_IP and echo_ip and t_ip and _same_family_diff(echo_ip, t_ip) \
+                and bad("выходной IP «плавает»"):
             return _reject("выходной IP «плавает»")
         if t_loc:
             _trace_loc[line] = t_loc
@@ -1533,7 +1618,7 @@ async def _probe(line, port):
         if exit_ip:
             _exit_ip[line] = exit_ip
 
-        if blocked_ok < MIN_BLOCKED_OK:
+        if blocked_ok < MIN_BLOCKED_OK and bad("заблокированные сайты недоступны"):
             return _reject("заблокированные сайты недоступны")
 
     # параллельный залп на НОВЫХ соединениях + загрузка и отдача
@@ -1542,9 +1627,9 @@ async def _probe(line, port):
     conn2 = aiohttp_socks.ProxyConnector.from_url(proxy, force_close=True)
     async with aiohttp.ClientSession(connector=conn2, timeout=timeout) as s2:
         urls = [TEST_URLS[i % len(TEST_URLS)] for i in range(BURST_PARALLEL)]
-        res = await asyncio.gather(*(_fetch_ok(s2, u) for u in urls),
-                                   return_exceptions=True)
-        if sum(isinstance(r, Exception) for r in res) > BURST_MAX_FAILS:
+        res = await asyncio.gather(*(_fetch_ok(s2, u) for u in urls), return_exceptions=True)
+        if sum(isinstance(r, Exception) for r in res) > BURST_MAX_FAILS \
+                and bad("параллельные запросы (залп)"):
             return _reject("параллельные запросы (залп)")
 
         if DOWNLOAD_URLS:
@@ -1554,10 +1639,9 @@ async def _probe(line, port):
                     break
                 except Exception:
                     continue
-            if REQUIRE_DOWNLOAD and dl_ms is None:
-                return _reject("скачивание не прошло")
-            if REQUIRE_DOWNLOAD and dl_ms > DOWNLOAD_MAX_MS:
-                return _reject("слишком медленная загрузка")
+            if REQUIRE_DOWNLOAD and (dl_ms is None or dl_ms > DOWNLOAD_MAX_MS) \
+                    and bad("загрузка 1 МБ не прошла / медленная"):
+                return _reject("загрузка 1 МБ не прошла / медленная")
 
         if UPLOAD_URL:
             try:
@@ -1571,21 +1655,23 @@ async def _probe(line, port):
                         up_ms = (time.monotonic() - start) * 1000
             except Exception:
                 up_ms = None
-            if REQUIRE_UPLOAD and (up_ms is None or up_ms > UPLOAD_MAX_MS):
+            if REQUIRE_UPLOAD and (up_ms is None or up_ms > UPLOAD_MAX_MS) \
+                    and bad("отдача (upload) не прошла / медленная"):
                 return _reject("отдача (upload) не прошла / медленная")
 
-        # финал: стабильность выходного IP и Gemini — одновременно (Gemini только для прошедших всё)
+        # финал: стабильность выходного IP и Gemini — одновременно
         want_ip2 = REQUIRE_STABLE_EXIT_IP and exit_ip
         ip2, gem = await asyncio.gather(
             fetch_ip(s2, XRAY_TEST_TIMEOUT) if want_ip2 else _noop(),
             check_gemini(s2) if GEMINI_CHECK else _noop(False),
         )
-        if want_ip2 and ip2 and _same_family_diff(exit_ip, ip2):
+        if want_ip2 and ip2 and _same_family_diff(exit_ip, ip2) and bad("выходной IP «плавает»"):
             return _reject("выходной IP «плавает»")
         if GEMINI_CHECK:
             _gemini[line] = _gemini.get(line, False) or bool(gem)
 
-    return statistics.median(latencies) + ((dl_ms or 0) + (up_ms or 0)) * SPEED_WEIGHT
+    return (statistics.median(warm) + ((dl_ms or 0) + (up_ms or 0)) * SPEED_WEIGHT
+            + SOFT_PENALTY_MS * len(soft))
 
 
 async def real_check(line):
@@ -1690,6 +1776,7 @@ async def ru_tcp_check(session, hostport):
             pass
 
         ok, answered, passed = parse_ru_result(res, RU_MIN_OK)
+        _ru_note(hostport, res)
         total = max(len(res or {}), len(_ru_nodes))
         pending = max(0, total - answered)
 
@@ -1711,6 +1798,77 @@ async def ru_tcp_check(session, hostport):
         return None
     _ru_api_fails = 0
     return bool(passed)
+
+
+def _ru_note(hostport, res):
+    """Средний RU-пинг (мс) по ответившим узлам — оценка «спасённых» конфигов."""
+    ts = []
+    for val in (res or {}).values():
+        try:
+            item = val[0]
+            if isinstance(item, dict) and "time" in item and "error" not in item:
+                ts.append(float(item["time"]) * 1000)
+        except Exception:
+            continue
+    if ts:
+        _ru_ms[hostport] = sum(ts) / len(ts)
+
+
+def _hostport_of(config):
+    hp = get_host_port(config)
+    if not hp:
+        return None
+    host, port = hp
+    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+
+
+def _endpoints(configs):
+    out = set()
+    for c in configs:
+        hp = get_host_port(c)
+        if hp:
+            out.add((_dns_cache.get(hp[0]) or hp[0], hp[1]))
+    return out
+
+
+async def ru_rescue(session, failed):
+    """Не ответившие из США по TCP -> проверка с российских узлов. Возвращает [(config, балл)]."""
+    global _ru_nodes
+    if not (RU_RESCUE and failed):
+        return []
+    _ru_nodes = await ru_load_nodes(session)
+    if not _ru_nodes:
+        print("[!] check-host.net: российские узлы недоступны — «только для РФ» не проверить")
+        return []
+    cands = [c for c in failed if not c.startswith(HY2_SCHEMES) and _hostport_of(c)]
+    cands.sort(key=lambda c: not is_lte(c))          # сначала подходящие под белые списки (📶)
+    cands = cands[:RU_RESCUE_MAX]
+    sem = asyncio.Semaphore(RU_CHECK_CONCURRENCY)
+    out = []
+
+    async def one(c):
+        hostport = _hostport_of(c)
+        async with sem:
+            if _ru_api_dead:
+                return
+            ok = await ru_tcp_check(session, hostport)
+        if ok:
+            _rescued.add(c)
+            out.append((c, RU_RESCUE_BASE_MS + _ru_ms.get(hostport, 0.0)))
+
+    await asyncio.gather(*(one(c) for c in cands))
+    print(f"    [{elapsed()}] «только для РФ»: проверено {len(cands)}, доступны с российских узлов {len(out)}")
+    return out
+
+
+def mix_rescued(verified, rescued, target, quota):
+    """Проверенные + «только для РФ»: им резерв quota мест; если проверенных мало — добираем до target."""
+    if not rescued:
+        return verified[:target] if target else verified
+    if not target:
+        return verified + rescued
+    n = min(len(rescued), max(quota, target - len(verified)))
+    return verified[:max(0, target - n)] + rescued[:n]
 
 
 def cap_hy2(items):
@@ -2469,12 +2627,19 @@ async def main():
             if isinstance(r, tuple):
                 url, cfgs = r
                 for c in cfgs:
-                    source_of.setdefault(dedupe_key(c), url)
+                    k = dedupe_key(c)
+                    source_of.setdefault(k, url)
+                    if url not in _src_of[k]:
+                        _src_of[k].append(url)
                 all_configs.extend(cfgs)
             else:
                 print(f"[!] Источник #{i}: ошибка {str(r)[:60]}")
 
         print(f"[i] Всего скачано: {len(all_configs)}")
+        if SOURCE_MARK_ENABLED:
+            print("[i] Метки источников (эмодзи в конце названия конфига):")
+            for u in SOURCES:
+                print(f"    {mark_of(u)} {u if len(u) <= 70 else u[:69] + '…'}")
 
         # ---------- 2. удаляем дубликаты (до проверки — экономит время) ----------
         # закреплённые никогда не удаляются; из подписок убираются только те,
@@ -2523,8 +2688,15 @@ async def main():
             if not ok:
                 s[1] += 1
 
+        def uncount(config):          # конфиг «спасён» проверкой из РФ — не считаем нерабочим
+            s = stats.get(source_of.get(dedupe_key(config)))
+            if s:
+                s[1] = max(0, s[1] - 1)
+
         # ---------- 3. быстрая TCP-проверка (только не-hy2) ----------
         alive = []
+        tcp_failed = []
+        rescue_task = None
         if xray_cands:
             stage(f"TCP: проверяю {len(xray_cands)}...")
             alive = await tcp_filter(xray_cands)
@@ -2532,7 +2704,13 @@ async def main():
             for c in xray_cands:
                 if c not in alive_set:
                     count(c, False)
+                    tcp_failed.append(c)
             print(f"[i] TCP ок: {len(alive)} из {len(xray_cands)}")
+            if RU_RESCUE and tcp_failed:
+                await lte_task                               # белые списки нужны для порядка проверки
+                print(f"[i] Не ответили из США: {len(tcp_failed)} — проверю с российских узлов "
+                      f"(вдруг открыты только для РФ), параллельно с основной проверкой")
+                rescue_task = asyncio.ensure_future(ru_rescue(session, tcp_failed))
 
         # самые быстрые по TCP проверяем первыми
         alive.sort(key=lambda x: x[1])
@@ -2542,7 +2720,7 @@ async def main():
             print(f"[i] Hy2 (UDP, без TCP-проверки): {len(hy2_cands)}")
 
         candidates = interleave(tcp_ok, hy2_cands)
-        if not candidates:
+        if not candidates and not rescue_task:
             print("[x] Ни один сервер не ответил по TCP.")
             return
 
@@ -2557,7 +2735,14 @@ async def main():
         hy2_ok = sum(1 for c, _ in working if c.startswith(HY2_SCHEMES))
         print(f"[✓] Рабочих: {len(working)} (из них hy2: {hy2_ok})")
 
-        if not working:
+        rescued = []
+        if rescue_task:
+            rescued = await rescue_task
+            for c, _ in rescued:
+                uncount(c)
+            print(f"[✓] «Только для РФ» (доступны с российских узлов): {len(rescued)}")
+
+        if not working and not rescued:
             print("[x] Рабочих конфигов нет.")
             if _fail:
                 print("\n[i] Причины отказов:")
@@ -2586,8 +2771,12 @@ async def main():
 
         stage("Отбор лучших (из РФ + повторный прогон одновременно)...")
         best = await select_best(session, working)
-        best = best[:TARGET_COUNT]
-        print(f"[i] Беру лучших: {len(best)}")
+        if rescued:
+            rescued.sort(key=lambda x: x[1])
+            rescued = await dedupe_by_ip(rescued, taken | _endpoints(c for c, _ in best))
+        best = mix_rescued(best, rescued, TARGET_COUNT, RU_RESCUE_QUOTA)
+        print(f"[i] Беру лучших: {len(best)} (из них «только для РФ»: "
+              f"{sum(1 for c, _ in best if c in _rescued)})")
 
         if not best:
             print("[x] После отбора рабочих не осталось.")
@@ -2638,7 +2827,10 @@ async def main():
             # каскад: страна ВХОДА (сервер из конфига) ≠ страна выхода; вход не за CDN
             ip = entry_ip.get(config)
             eg = entry_geo.get(ip) if ip else None
-            if code and eg and ip != _exit_ip.get(config) and eg[0] != code.upper() \
+            if not code and eg and config in _rescued:
+                code = eg[0]                       # выход не проверялся: страна по входу
+                final_name = make_geo_name(code, None)
+            elif code and eg and ip != _exit_ip.get(config) and eg[0] != code.upper() \
                     and not any(w in eg[1] for w in CDN_WORDS):
                 final_name = f"{get_country_flag(eg[0])} -> {final_name}"  # {флаг входа} -> {флаг выхода} ...
                 cascades += 1
@@ -2650,6 +2842,10 @@ async def main():
             if GEMINI_CHECK and _gemini.get(config):
                 final_name += f" {GEMINI_TAG}"          # Gemini — самым последним
                 gemini_n += 1
+            if SOURCE_MARK_ENABLED:
+                tag = source_tag(config)
+                if tag:
+                    final_name += f" {tag}"                 # источник — в самом конце
 
             country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
             items.append((country_key, latency, rename_config(config, final_name)))
@@ -2677,6 +2873,11 @@ async def main():
         for reason, n in _fail.most_common():
             print(f"    {n:>5}  {reason}")
 
+    if _soft:
+        print("\n[i] Мягкие замечания у прошедших проверку (не отсев, а штраф к баллу):")
+        for reason, n in _soft.most_common():
+            print(f"    {n:>5}  {reason}")
+
     # ---------- 8. где больше всего нерабочих ----------
     rows = [(url, tested, bad) for url, (tested, bad) in stats.items() if url and tested]
     if rows:
@@ -2684,9 +2885,9 @@ async def main():
         print("\n[i] Нерабочих по источникам:")
         for n, (url, tested, bad) in enumerate(rows):
             icon = "🥴" if n == 0 else "  "
-            print(f"{icon} {short_name(url)}: {bad}/{tested} ({bad * 100 // tested}%)")
+            print(f"{icon} {mark_of(url)} {short_name(url)}: {bad}/{tested} ({bad * 100 // tested}%)")
         top_url, top_tested, top_bad = rows[0]
-        print(f"\n[!] Больше всего нерабочих: {short_name(top_url)} ({top_bad} из {top_tested})")
+        print(f"\n[!] Больше всего нерабочих: {mark_of(top_url)} {short_name(top_url)} ({top_bad} из {top_tested})")
 
     write_step_summary([
         "### PizdukVPN ЧС ❄️",

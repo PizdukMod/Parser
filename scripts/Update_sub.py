@@ -181,7 +181,7 @@ XRAY_BINARY = "xray"       # должен быть в PATH
 # --- Hy2 (проверяется через sing-box, т.к. это UDP/QUIC) ---
 CHECK_HY2 = True           # False — не проверять hy2 вообще
 SINGBOX_BINARY = "sing-box"  # должен быть в PATH (нужна версия 1.11+)
-MAX_HY2 = 8                # максимум hy2 в итоге (UDP/QUIC из РФ часто режется; 0 = без лимита)
+MAX_HY2 = 4                # максимум hy2 в итоге (UDP/QUIC из РФ часто режется; 0 = без лимита)
 
 # Тестовые URL — те же, что обычно использует клиент (google/gstatic) + cloudflare
 TEST_URLS = [
@@ -196,7 +196,7 @@ TEST_URLS = [
 QUICK_CHECK = True
 QUICK_URLS = TEST_URLS[:2]  # какие URL дёргаем
 QUICK_TIMEOUT = 8.0         # сек на запрос
-QUICK_MIN_OK = 1            # сколько из QUICK_URLS должны ответить
+QUICK_MIN_OK = 2            # сколько из QUICK_URLS должны ответить (оба; есть повторная попытка)
 
 # Проверка: тестовые URL должны отвечать, но одиночный сбой прощается.
 # Холодный раунд = быстрый шлюз; тёплые запросы (keep-alive и доп. раунды) идут в пинг.
@@ -206,7 +206,7 @@ TEST_MAX_FAILS = 1          # сколько запросов можно про�
 # --- Защита от «соединение закрыто» и тайм-аутов ---
 IDLE_PAUSE = 1.0            # пауза перед повторным запросом по тому же соединению (было 2.0)
 BURST_PARALLEL = 8          # параллельных запросов на новых соединениях
-BURST_MAX_FAILS = 2         # сколько из них можно провалить
+BURST_MAX_FAILS = 1         # сколько из них можно провалить (из 8)
 
 # --- Скачивание ---
 DOWNLOAD_URLS = [           # достаточно, чтобы прошёл ХОТЯ БЫ ОДИН
@@ -256,7 +256,7 @@ IP_ECHO_URLS = [
 REQUIRE_EXIT_IP = True      # не получили выходной IP или он = нашему → конфиг нерабочий
 DEDUPE_BY_EXIT_IP = True    # дубли по реальному выходному IP
 DEDUPE_BY_SETTINGS = True   # дубли: те же host:port и настройки, но разные uuid/пароли
-MAX_PER_SUBNET = 6          # максимум серверов из одной подсети /24 (0 = без лимита):
+MAX_PER_SUBNET = 3          # максимум серверов из одной подсети /24 (0 = без лимита):
                             # «фермы» из одной подсети разом падают/блокируются
 
 # --- Проверка «для РФ», когда раннер в США ---
@@ -264,8 +264,16 @@ MAX_PER_SUBNET = 6          # максимум серверов из одной 
 # паузы, выходной IP не совпал с нашим. Всё остальное — МЯГКО: проваленная проверка даёт штраф
 # к баллу, а отсев только если провалено больше SOFT_FAIL_LIMIT. False — всё жёстко, как раньше.
 SOFT_CHECK = True
-SOFT_FAIL_LIMIT = 2
+SOFT_FAIL_LIMIT = 1
 SOFT_PENALTY_MS = 700
+# Проверки, провал которых = будущий «Тайм-аут» в клиенте: отсев сразу, без «мягкого» прощения.
+HARD_REASONS = (
+    "keep-alive: часть повторных запросов",
+    "параллельные запросы (залп)",
+    "загрузка 1 МБ не прошла / медленная",
+)
+# Первый запрос через туннель (рукопожатие + ответ) дольше этого — клиент отвалится по тайм-ауту.
+COLD_MAX_MS = 4500          # 0 = не проверять
 QUICK_RETRY = True          # быстрый шлюз: одна повторная попытка (маршрут США→мир нестабилен)
 TCP_RETRIES = 1             # повтор TCP-проверки (флапы маршрута США→сервер)
 
@@ -273,14 +281,19 @@ TCP_RETRIES = 1             # повтор TCP-проверки (флапы ма
 # проверяются с российских узлов check-host.net. Прошедшие идут в подписку после проверенных.
 RU_RESCUE = True
 RU_RESCUE_MAX = 150          # сколько таких конфигов отправить в check-host за запуск
-RU_RESCUE_QUOTA = 20        # сколько мест в подписке гарантировано им (если проверенных мало — больше)
+RU_RESCUE_QUOTA = 10        # сколько мест в подписке гарантировано им (если проверенных мало — больше)
+RU_RESCUE_MIN_OK = 3        # «спасённым» нужно больше узлов РФ, чем проверенным (они не прошли ядро)
+RU_RESCUE_RECHECK = True    # повторная проверка «спасённых» через паузу (отсев «мигающих»)
+RU_RESCUE_RECHECK_PAUSE = 10.0
 RU_RESCUE_BASE_MS = 1500    # базовый балл (они не проверены ядром, идут после проверенных)
 
 # --- Проверка «из России» ---
 RU_CHECK = True            # отсев проверенных, недоступных с российских узлов (при сбое API — не отсеиваем)
 CHECK_HOST_API = "https://check-host.net"
-RU_NODES_MAX = 4            # сколько российских узлов использовать
-RU_MIN_OK = 2               # сколько узлов должны достучаться (если ответивших меньше — все они)
+RU_NODES_MAX = 5            # сколько российских узлов использовать
+RU_MIN_OK = 3               # сколько узлов должны достучаться (если ответивших меньше — все они)
+RU_MAX_TCP_MS = 700         # TCP-пинг из РФ выше этого — клиент словит тайм-аут (0 = не проверять)
+RU_SCORE_WEIGHT = 2.0       # итоговая сортировка внутри страны: балл + RU-пинг × вес (ближе к РФ = выше)
 RU_CHECK_CONCURRENCY = 5    # одновременных запросов к check-host (было 3; выше — лимиты API, 429)
 RU_MAX_CHECKS = 200         # максимум конфигов, которые отправим в check-host за запуск (было 350)
 RU_FIRST_POLL = 1.5         # сек до первого опроса результата
@@ -291,10 +304,10 @@ RU_FAIL_OPEN = True         # check-host недоступен -> не отбра
 # Повторная проверка лучших кандидатов отдельным запуском ядра (идёт ПАРАЛЛЕЛЬНО с проверкой «из РФ»):
 # отсекает «мигающие» серверы, которые прошли проверку случайно.
 CONFIRM_BEST = True
-CONFIRM_RUNS = 1           # сколько ДОПОЛНИТЕЛЬНЫХ прогонов должен пройти конфиг
-CONFIRM_PAUSE = 15.0       # пауза между прогонами (работает только при CONFIRM_RUNS > 1)
+CONFIRM_RUNS = 2           # сколько ДОПОЛНИТЕЛЬНЫХ прогонов должен пройти конфиг
+CONFIRM_PAUSE = 8.0       # пауза между прогонами (работает только при CONFIRM_RUNS > 1)
 CONFIRM_SPARE = 10         # сколько лишних кандидатов брать с запасом на выбывших
-CONFIRM_CONCURRENCY = 10   # (было 5)
+CONFIRM_CONCURRENCY = 15   # (было 5)
 
 # --- Метка 📶: конфиг подходит под белые списки мобильного интернета РФ ---
 # Определить реальный тип сети (LTE/Wi-Fi) проверкой нельзя, поэтому метка ставится
@@ -1554,15 +1567,19 @@ async def _probe(line, port):
     soft = []
 
     def bad(reason):
-        """Мягкая проверка не пройдена. True — пора отсеивать."""
+        """Проверка не пройдена. True — пора отсеивать (HARD_REASONS — сразу, остальные — мягко)."""
+        if (not SOFT_CHECK) or reason in HARD_REASONS:
+            return True
         soft.append(reason)
         _soft[reason] += 1
-        return (not SOFT_CHECK) or len(soft) > SOFT_FAIL_LIMIT
+        return len(soft) > SOFT_FAIL_LIMIT
 
     gate = await _tunnel_gate(proxy)
     if gate is None:
         return _reject("быстрая проверка: прокси не отвечает")
-    _cold, warm, warm_fails = gate
+    cold, warm, warm_fails = gate
+    if COLD_MAX_MS and cold and min(cold) > COLD_MAX_MS:
+        return _reject("слишком медленный первый запрос (COLD_MAX_MS)")
     if not warm:
         return _reject("соединение рвётся после паузы (keep-alive)")
     if warm_fails > TEST_MAX_FAILS and bad("keep-alive: часть повторных запросов"):
@@ -1718,9 +1735,10 @@ def _ru_api_failed():
         _ru_api_dead = True
 
 
-async def ru_tcp_check(session, hostport):
+async def ru_tcp_check(session, hostport, min_ok=None):
     """True/False — доступен ли host:port с российских узлов; None — не удалось узнать."""
     global _ru_api_fails
+    need = min_ok or RU_MIN_OK
     params = [("host", hostport)] + [("node", n) for n in _ru_nodes]
     rid = None
     for attempt in range(3):
@@ -1752,15 +1770,15 @@ async def ru_tcp_check(session, hostport):
         except Exception:
             pass
 
-        ok, answered, passed = parse_ru_result(res, RU_MIN_OK)
+        ok, answered, passed = parse_ru_result(res, need)
         _ru_note(hostport, res)
         total = max(len(res or {}), len(_ru_nodes))
         pending = max(0, total - answered)
 
-        if ok >= RU_MIN_OK:                       # достаточно узлов достучались — решение принято
+        if ok >= need:                            # достаточно узлов достучались — решение принято
             _ru_api_fails = 0
             return True
-        if answered and answered > ok and ok + pending < RU_MIN_OK:
+        if answered and answered > ok and ok + pending < need:
             _ru_api_fails = 0                     # уже не набрать нужное число — отбрасываем
             return False
         if pending == 0 and answered:             # ответили все
@@ -1828,14 +1846,45 @@ async def ru_rescue(session, failed):
         async with sem:
             if _ru_api_dead:
                 return
-            ok = await ru_tcp_check(session, hostport)
+            ok = await ru_tcp_check(session, hostport, RU_RESCUE_MIN_OK)
         if ok:
+            if RU_MAX_TCP_MS and _ru_ms.get(hostport, 0.0) > RU_MAX_TCP_MS:
+                _reject("медленный TCP из РФ (RU_MAX_TCP_MS)")
+                return
             _rescued.add(c)
             out.append((c, RU_RESCUE_BASE_MS + _ru_ms.get(hostport, 0.0)))
 
     await asyncio.gather(*(one(c) for c in cands))
+
+    if RU_RESCUE_RECHECK and out and not _ru_api_dead:
+        await asyncio.sleep(RU_RESCUE_RECHECK_PAUSE)
+        keep = []
+
+        async def again(item):
+            c, _score = item
+            hostport = _hostport_of(c)
+            async with sem:
+                ok = await ru_tcp_check(session, hostport, RU_RESCUE_MIN_OK)
+            if ok is None or ok:                    # None — API не ответил, не наказываем
+                keep.append(item)
+            else:
+                _rescued.discard(c)
+                _reject("«только для РФ»: не прошёл повторную проверку")
+
+        await asyncio.gather(*(again(it) for it in out))
+        out = [it for it in out if it in keep]
     print(f"    [{elapsed()}] «только для РФ»: проверено {len(cands)}, доступны с российских узлов {len(out)}")
     return out
+
+
+def rank_score(config, latency):
+    """Балл для сортировки внутри страны: пинг из США + RU-пинг × вес (ближе к РФ = выше).
+    Теги скорости (❄️/⛄/🧊) по-прежнему считаются по «чистому» latency."""
+    if config in _rescued:
+        return latency
+    hp = _hostport_of(config)
+    ru = _ru_ms.get(hp) if hp else None
+    return latency + (ru * RU_SCORE_WEIGHT if ru else 0.0)
 
 
 def mix_rescued(verified, rescued, target, quota):
@@ -2510,6 +2559,11 @@ async def select_best(session, items):
         if not res:
             st["dropped"] += 1
             _reject("недоступен из РФ (check-host TCP)")
+            return res
+        if RU_MAX_TCP_MS and _ru_ms.get(hostport, 0.0) > RU_MAX_TCP_MS:
+            st["dropped"] += 1
+            _reject("медленный TCP из РФ (RU_MAX_TCP_MS)")
+            return False
         return res
 
     async def confirm_ok(config, first_score):
@@ -2825,7 +2879,7 @@ async def main():
                     final_name += f" {tag}"                 # источник — в самом конце
 
             country_key = get_country_name(code) if code else "я_Неизвестно"  # неизвестные — в конец
-            items.append((country_key, latency, rename_config(config, final_name)))
+            items.append((country_key, rank_score(config, latency), rename_config(config, final_name)))
 
         print(f"[i] Каскадов: {cascades}, Gemini {GEMINI_TAG}: {gemini_n}")
 
@@ -2878,4 +2932,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n[!] Остановлено.")
+        print("\n[!] Остановлено.") 

@@ -32,11 +32,12 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 SOURCES = [
     "https://freevpn.happcluchi.workers.dev", #@freevpnhapp
     "https://pozor.bond/sub/aeryxvpn",
-    "https://mifa.world/whisper",
+    "https://mifa.world/wilson",
     "https://p.kfwl.lol/https://lunavex.net/sub/Owo3mNLH0sxT3bJm", #2 дня работает пока что
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
+    "https://raw.githubusercontent.com/Ilyacom4ik/free-v2ray-2026/refs/heads/main/subscriptions/FreeCFGHub1.txt",
     "https://bit.ly/LimeVPN",
     "https://github.com/theakres/VPN/raw/main/all", #akres
 ]

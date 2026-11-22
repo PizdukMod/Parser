@@ -35,7 +35,6 @@ SOURCES = [
     "https://mifa.world/wilson",
     "https://pozor.bond/sub/mda",
     "https://p.kfwl.lol/https://lunavex.net/sub/Owo3mNLH0sxT3bJm", #2 дня работает пока что
-    "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
     "https://raw.githubusercontent.com/Ilyacom4ik/free-v2ray-2026/refs/heads/main/subscriptions/FreeCFGHub1.txt",

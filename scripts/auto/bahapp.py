@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, unquote
 import requests
 
 # Источник подписки (vless:// ссылки). Не должен совпадать с файлом назначения.
-SUB_URL = "https://github.com/PizdukMod/PizdukVPN/raw/refs/heads/main/wl"
+SUB_URL = "https://github.com/PizdukMod/PizdukVPN/raw/refs/heads/main/sub"
 
 REPO = "PizdukMod/PizdukVPN"
 BRANCH = "main"

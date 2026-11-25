@@ -44,6 +44,7 @@ SOURCES = [
     "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
     "https://bit.ly/LimeVPN",
     "https://clck.ly/3WnEfT",
+    "https://sub.safecdn.eu.cc/sub",
     "https://tshbotpopup.ru/subscriptions/04920673-035c-410d-94e4-5b1469d3fb6f.txt",
     "https://github.com/theakres/VPN/raw/main/all", #akres
     "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=F6wVeTN5txs/L16UBu%2BIsLM02HYYIMn5pHkx/X5QLglR/q9gUb%2BlC/C1LQ7xYwImR4L8KWbfibJOpbWABWX/7m9Z02x9Em%2BVpuTMNyEqQCG8PBJ9ghJGhdGGR0f5ChPq",

@@ -35,24 +35,27 @@ SOURCES = [
     # РКП
     "https://gidroksi.fun/black-list",
     "https://hub.mos.ru/rkp/sub-roskompozor/raw/main/bl",
-    # Кота
-    "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/Black_List.txt",
-    "https://raw.githubusercontent.com/KoT-ANTIDOT/bunker-subscriptions/refs/heads/main/White_List.txt",
     # Слитые
-    "https://mifa.world/sinta",
+    "https://mifa.world/gexan",
+    "https://v-p-n.trade/sub/for-russia",
     "https://notfreesubnewcode.newcodevless.workers.dev/d482ba8b1903173fa87095d0ef9d86a47b9c462e672981f94cb16c92b57b2d02",
     # Из чс
+    "https://sub.namazvpn.workers.dev",
     "https://pozor.bond/sub/aeryxvpn",
-    "https://goo.su/Xfwbx",
+    "https://raw.githubusercontent.com/Ilyacom4ik/free-v2ray-2026/refs/heads/main/subscriptions/FreeCFGHub1.txt",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt", #vlessforu
     "https://admin2.vspboost.ru/s/rZ7ekY", #vsp
-    "https://raw.githubusercontent.com/MK-l4/Q-RVVPN/refs/heads/main/Q%E2%80%A2RVVPN",
     "https://raw.githubusercontent.com/OceaniaVPN/StekloVPN/refs/heads/main/configs/okeania_auto.txt",
     "https://raw.githubusercontent.com/s0ulcoil/HavenVPN/refs/heads/main/Haven",
     "https://raw.githubusercontent.com/korol5028/korol-vpn/main/Pohyu.txt",
     "https://bit.ly/LimeVPN",
+    "https://bit.ly/49lA8Yk#PiroShok",
     "https://clck.ly/3WnEfT",
+    "https://clck.ru/3XGXXm", #piroshok
+    "https://sub.safecdn.eu.cc/sub",
+    "https://tshbotpopup.ru/subscriptions/04920673-035c-410d-94e4-5b1469d3fb6f.txt",
     "https://github.com/theakres/VPN/raw/main/all", #akres
+    "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=F6wVeTN5txs/L16UBu%2BIsLM02HYYIMn5pHkx/X5QLglR/q9gUb%2BlC/C1LQ7xYwImR4L8KWbfibJOpbWABWX/7m9Z02x9Em%2BVpuTMNyEqQCG8PBJ9ghJGhdGGR0f5ChPq", 
 ]
 
 
